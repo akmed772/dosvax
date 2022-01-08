@@ -85,7 +85,7 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
   - Fix a bug that the vertical ruled line breaks when attributes blinking, vertical ruled line and underline are specified at the same time (in PS/55 text mode).
 * Build 4467PS02 (2021/12/25)
   - Partially support for PS/55 monochrome graphics and 16-color graphics modes (IBM 5550 Graphic Support Functions and BIOS are not implemented).
-- - Improve videomode determination in PS/55 emulation (this is incomplete in DOS K3.3 and K3.4).
+  - Improve videomode determination in PS/55 emulation (this is incomplete in DOS K3.3 and K3.4).
   - Add PS/55 key binding (Ctrl + F1).
 * Build 4467PS01 (2021/12/17)
   - Add the emulation equivalent to IBMJ PS/55 model 5550-S/T/V. See README_PS55.txt for usage.
