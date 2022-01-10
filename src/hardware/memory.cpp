@@ -564,9 +564,9 @@ public:
 		/* Clear the memory, as new doesn't always give zeroed memory
 		 * (Visual C debug mode). We want zeroed memory though. */
 		memset((void*)MemBase,0x00,memsize*1024*1024);
-		//for PS/55 : Set FFh at segment D0000-DFFFFh for XMAEM.SYS
 		if (IS_PS55_ARCH) {//for PS/55
-		memset((void*)(MemBase + 0xD0000), 0xff, 64 * 1024);
+			//Set FFh at D0000-DFFFFh for XMAEM.SYS
+			memset((void*)(MemBase + 0xD0000), 0xff, 64 * 1024);
 		}
 		memory.pages = (memsize*1024*1024)/4096;
 		/* Allocate the data for the different page information blocks */

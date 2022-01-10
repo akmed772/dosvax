@@ -65,9 +65,17 @@ public:
 	//Font ROM and Gaiji RAM placed 2-4 banks x 128 KB of its memory between 0xA0000 - 0xBFFFF.
 	// Address Bits: ab bbbb bbbb bbbb bbbb (a = bank select, b = addr)
 	Bitu readHandler(PhysPt addr) {
-		addr |= ((Bitu)ps55.mem_bank << 17);
-		//LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, addr %x", ps55.mem_select, ps55.mem_bank, addr / 72);
-		switch (ps55.mem_select) {
+		if(ps55.data3e3_08 == 0x80)
+			addr |= ((Bitu)ps55.mem_bank << 17);
+		else
+		{
+			Bitu index = ps55.mem_select & 0x0f;
+			index <<= 8;
+			index |= ps55.mem_bank;
+			addr += index * 0x40;
+		}
+		//LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, addr %x", ps55.mem_select, ps55.mem_bank, addr);
+		switch (ps55.mem_select & 0xf0) {
 		case 0xb0://Gaiji RAM
 			addr &= 0x3FFFF;//safety access
 			return ps55.gaiji_ram[addr];
@@ -88,7 +96,15 @@ public:
 			LOG_MSG("PS55_MemHnd: Failure to write to mem %x, addr %x, val %x", ps55.mem_select, addr, val);
 			return;//safety
 		}
-		addr |= ((Bitu)ps55.mem_bank << 17);
+		if (ps55.data3e3_08 == 0x80)
+			addr |= ((Bitu)ps55.mem_bank << 17);
+		else
+		{
+			Bitu index = ps55.mem_select & 0x0f;
+			index <<= 8;
+			index |= ps55.mem_bank;
+			addr += index * 0x40;
+		}
 		//LOG_MSG("PS55_MemHnd: Write to mem %x, addr %x, val %x", ps55.mem_select, addr, val);
 		switch (ps55.mem_select) {
 		case 0xb0://Gaiji RAM
@@ -167,7 +183,7 @@ void write_p96(Bitu port, Bitu val, Bitu len) {
 }
 
 Bitu read_p96(Bitu port, Bitu len) {
-	//LOG_MSG("MCA_p96: Read from port %x, len %x", port, len);
+	LOG_MSG("MCA_p96: Read from port %x, len %x", port, len);
 	return 0;
 }
 
@@ -193,6 +209,7 @@ void DisableVGA(void) {
 	//IO_FreeReadHandler(0x3da, IO_MB);//DOSSHELL reads Input Status Register 1
 
 	MEM_ResetPageHandler(0xc0000 / 4096, 8);//setup ram at 0xc0000-0xc8000
+	PAGING_ClearTLB();
 	for (Bitu i = 0; i < 0x8000; i++) {
 		mem_writeb(0xc0000 + i, (Bit8u)0);
 	}
@@ -235,7 +252,7 @@ void MCA_Card_Reg_Write(Bitu port, Bitu val, Bitu len) {
 			break;
 		}
 	}
-	if ((mca.mothersetupen)) {//I/O 94h bit 7 is on
+	if (mca.mothersetupen) {//I/O 94h bit 7 is unset
 		switch (port) {
 		case 0x104://System Board POS Register 4 (Hex 104)
 			//if (val & 0x01) ;//Bit 0: Disable/-Enable 4 KB Hex E0000-E0FFF); do nothing here
@@ -378,7 +395,8 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			}
 			ps55.mem_conf = val;//for DEBUG
 			break;
-		case 0x08://??? length of font data? 80h
+		case 0x08://??? length of font data? 80h latching? 10h
+			ps55.data3e3_08 = val;
 			//if(val != 0x80) LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 			break;
 		case 0x0a://Number of the memory page to access
@@ -646,9 +664,11 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 			}
 			return;
 		case 0x1a://Cursor color
+#ifdef C_HEAVY_DEBUG
 			if ((ps55.cursor_color & 0x0f) ^ (data & 0x0f)) {
-				//LOG_MSG("PS55_ATTR: The cursor color is changed to %02xh (%d)", data & 0x0f, data & 0x0f);
+				LOG_MSG("PS55_ATTR: The cursor color is changed to %02xh (%d)", data & 0x0f, data & 0x0f);
 			}
+#endif
 			ps55.cursor_color = data & 0x0f;
 			return;
 		case 0x1b://Cursor blinking speed
@@ -756,10 +776,10 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 		case 0x08://bit 4: Gaiji RAM Access Enabled
 			ret = ps55.gaijiram_access;
 			break;
-		case 0x0a://Video Memory Size Low?
+		case 0x0a://flags?
 			ret = 0x07;//Bit2-0=(110 or 111): Display Adapter Memory Expansion Kit is not installed.
 			break;
-		case 0x0b://Video Memory Size High?
+		case 0x0b://flags?
 			ret = 0x00;
 			break;
 		default:
@@ -808,7 +828,8 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 			break;
 		}
 		//LOG_MSG("PS55_ATTR: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e8, len, ret);
-		ps55.latch_3e8 = false;//reset latch
+		ps55.latch_3e8 = (ps55.latch_3e8) ? false : true;//toggle latch
+		//ps55.latch_3e8 = false;//reset latch
 		break;
 	case 0x3eb://Graphics Controller Registers
 	case 0x3ec:

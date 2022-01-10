@@ -633,7 +633,7 @@ Bit8u IRGBtoBGRI(Bit8u attr)
 	attr = (attr & 0x01) << 7 | (attr & 0x02) << 5 | (attr & 0x04) << 3 | (attr & 0x08) << 1;
 	return attr >>= 4;
 }
-//Display Adapter Mode 8, E drawing
+//Display Adapter Mode 8, E Drawing
 static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 	Bit8u* draw = ((Bit8u*)TempLine);
 	const Bit8u* vidmem = VGA_Text_Memwrap(vidstart); // pointer to chars+attribs
@@ -669,7 +669,7 @@ static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 		{//--Parse attribute byte in monochrome mode--
 			if (attr & 0x08) foreground = 3;//Highlight 0000 1000
 			else foreground = 2;
-			background = 0;//Background is always black
+			background = 0;//Background is always color #0 (default is black)
 			if (!(~attr & 0xCC))//Invisible 11xx 11xx -> 00xx 00xx 
 			{
 				foreground = background;
@@ -770,6 +770,7 @@ static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 			//if (ps55.attr_mode & 0x80)//color mode
 			//foreground = ((ps55.cursor_color & 0x07) << 1);
 			foreground = (ps55.attr_mode & 0x80) ? IRGBtoBGRI(ps55.cursor_color) : 2;
+			if(vga.tandy.draw_base[vga.draw.cursor.address + 1] & 0x04) foreground = 0;//Color 0 if reverse
 			//foreground = IRGBtoBGRI(foreground);
 			//foreground = IRGBtoBGRI(ps55.cursor_color & 0x0f);
 			//foreground = ~ps55.cursor_color & 0x0f;
