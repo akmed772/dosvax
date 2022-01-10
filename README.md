@@ -1,7 +1,7 @@
 DOSVAX
 =======
 
-Source code is located on GitHub.
+Source code is located on GitHub <https://github.com/akmed772/dosvax>.
 
 You can obtain the binary file for Windows from my homepage at <http://radioc.web.fc2.com/>.
 
@@ -58,14 +58,14 @@ RCtrl       英数カナ  RCtrl
 
 ```
 [dosbox] section
-jfontsbcs=   Path to 8x19 FONTX2 SBCS font file
-jfontdbcs=   Path to 16x16 FONTX2 DBCS font file
+jfontsbcs=     Path to 8x19 FONTX2 SBCS font file
+jfontdbcs=     Path to 16x16 FONTX2 DBCS font file
 jfontsbcs24=   Path to 12x24 FONTX2 SBCS font file
                or Path to 13x30 DOS K3.x SBCS font file ($SYSHN24.FNT)
 jfontsbex24=   Path to 13x30 DOS K3.x Extended SBCS font file ($SYSEX24.FNT) (option)
 jfontdbcs24=   Path to 24x24 FONTX2 DBCS font file
-machine=ega  Enable AX emulation, and start with the AX English mode.
-machine=jega Start with AX Japanese mode. It can display Japanese without the AX version of MS-DOS, but some applications do not work correctly.
+machine=ega    Enable AX emulation, and start with the AX English mode.
+machine=jega   Start with AX Japanese mode. It can display Japanese without the AX version of MS-DOS, but some applications do not work correctly.
 machine=svga_ps55  Enable PS/55 emulation. Please read README_PS55.txt.
 machine= for other options, see the original DOSBox documentation.
 
@@ -75,6 +75,8 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4467PS05 (2022/01/10)
+  - Fix the cursor color at the position where the reverse attribute is set.
 * Build 4467PS04 (2021/12/31)
   - Support DOS J4.0 XMAEM.SYS (80386 XMA Emulator) (Do not use $BANK386.SYS).
   - Change the key binding setting (Since the specification of mapper.txt has changed, please overwrite the new file and setup the key binding again).

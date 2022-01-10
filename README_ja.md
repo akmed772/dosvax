@@ -46,15 +46,15 @@ PS/55エミュレーション時の説明は割愛。画面から察して下さ
 
 ```
 [dosbox]セクション
-jfontsbcs=   半角表示用FONTX2フォントファイルへのパス 8x19
-jfontdbcs=   全角表示用FONTX2フォントファイルへのパス 16x16
-jfontsbcs24=   半角表示用FONTX2フォントファイルへのパス 12x24
-               または、DOS K3.x半角フォントファイル ($SYSHN24.FNT) へのパス 13x30
-jfontsbex24=   DOS K3.x拡張半角文字フォントファイル ($SYSEX24.FNT) へのパス 13x30
-jfontdbcs24=   全角表示用FONTX2フォントファイルへのパス 24x24
-machine=ega  AX固有の機能が有効になります。DOSBox起動時はAX英語モードです。
-machine=jega DOSBox起動時からAX日本語モードで起動します。AX版MS-DOSがなくても日本語を表示できますが、いくつかのアプリケーションは正常に動作しません。DOSの国別情報は米国のままです。
-machine=svga_ps55  PS/55エミュレーションが有効になります。起動時はSBCSモードです。
+jfontsbcs=        半角表示用FONTX2フォントファイルへのパス 8x19
+jfontdbcs=        全角表示用FONTX2フォントファイルへのパス 16x16
+jfontsbcs24=      半角表示用FONTX2フォントファイルへのパス 12x24
+                  または、DOS K3.x半角フォントファイル ($SYSHN24.FNT) へのパス 13x30
+jfontsbex24=      DOS K3.x拡張半角文字フォントファイル ($SYSEX24.FNT) へのパス 13x30
+jfontdbcs24=      全角表示用FONTX2フォントファイルへのパス 24x24
+machine=ega       AX固有の機能が有効になります。DOSBox起動時はAX英語モードです。
+machine=jega      DOSBox起動時からAX日本語モードで起動します。AX版MS-DOSがなくても日本語を表示できますが、いくつかのアプリケーションは正常に動作しません。DOSの国別情報は米国のままです。
+machine=svga_ps55 PS/55エミュレーションが有効になります。起動時はSBCSモードです。
 machine=に上記以外の値を設定すると素のDOSBoxと同様に振る舞います
 
 [dos]セクション
@@ -63,6 +63,8 @@ keyboardlayout=jp ホストのキーボードが米国英語101キー配列で�
 
 ### 変更履歴
 
+* Build 4467PS05 (2022/01/10)
+  - 反転属性がセットされている位置でのカーソル色を修正
 * Build 4467PS04 (2021/12/31)
   - DOS J4.0のXMAEM.SYS (80386 XMA Emulator) に対応（$BANK386.SYSは暴走するため使用しないで下さい。）
   - キーバインドの設定を変更（mapper.txtの仕様が変わっているため、新ファイルを上書きしてから再設定して下さい）
