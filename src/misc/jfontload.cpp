@@ -1,5 +1,5 @@
  /*
- Copyright (c) 2016-2021 akm
+ Copyright (c) 2016-2022 akm
  All rights reserved.
  This content is under the MIT License.
  */
@@ -59,6 +59,8 @@ Bit16u chrtosht(FILE *fp)
 //convert Shift JIS code to PS/55 internal char code
 Bit16u SJIStoIBMJ(Bit16u knj)
 {
+	//verify code
+	if (knj < 0x8140 || knj > 0xfc4b) return 0xffff;
 	Bitu knj1 = (knj >> 8) & 0xff;// = FCh - 40h //higher code (ah)
 	Bitu knj2 = knj & 0xff;//lower code (al)
 	knj1 -= 0x81;
@@ -75,6 +77,41 @@ Bit16u SJIStoIBMJ(Bit16u knj)
 		knj += 0x906c;
 	else if (knj >= 0x2614 && knj <= 0x2673)
 		knj += 0x90ec;
+	return knj;
+}
+
+//Convert internal char code to Shift JIS code (obsolete)
+Bit16u IBMJtoSJIS(Bit16u knj)
+{
+	//verify code
+	if (knj < 0x100) return 0xffff;
+	knj -= 0x100;
+	if (knj <= 0x1f7d)
+		;//do nothing
+	else if(knj >= 0xb700 && knj <= 0xb75f) {
+		knj -= 0x90ec;
+	}
+	else if (knj >= 0xb3f0 && knj <= 0xb67f) {
+		knj -= 0x906c;
+	}
+	else if (knj >= 0x8000 && knj <= 0x8183)
+	{
+		knj -= 0x5524;
+	}
+	else
+		return 0xffff;
+	Bitu knj1 =  knj / 0xBC;// = FCh - 40h //higher code (ah)
+	Bitu knj2 = knj - (knj1 * 0xBC);//lower code (al)
+	//knj1 = knj >> 8;//higher code (ah)
+	knj1 += 0x81;
+	if (knj1 > 0x9F) knj1 += 0x40;
+	knj2 += 0x40;
+	if (knj2 > 0x7E) knj2++;
+	//verify code
+	if (!isKanji1(knj1)) return 0xffff;
+	if (!isKanji2(knj2)) return 0xffff;
+	knj = knj1 << 8;
+	knj |= knj2;
 	return knj;
 }
 
@@ -362,7 +399,6 @@ void JFONT_Init(Section_prop * section) {
 	//initialize memory array
 	memset(jfont_sbcs_19, 0xff, SBCS19_LEN);
 	memset(jfont_dbcs_16, 0xff, DBCS16_LEN);
-	//memset(jfont_sbcs_24, 0xffff, SBCS24_LEN);
 	memset(ps55font_24, 0xff, DBCS24_LEN);
 	//for (int i = 0; i < DBCS24_LEN / TESLENG; i++) {//for test
 	//	jfont_dbcs_24[i * TESLENG + 2] = i & 0xff;
