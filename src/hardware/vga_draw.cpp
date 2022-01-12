@@ -554,6 +554,7 @@ skip_cursor:
 //18000-1BFFFh (98000-9BFFFh;around IBMJ 21C7-22AAh) : Basic SBCS (13 x 30)
 //Bank 5
 //10000-13FFFh (B0000-B3FFFh;around IBMJ 271C-27FFh) : Extended SBCS (13 x 30)
+//14000-?      (B4000-?) : SBCS? used by DOS Bunsho Program
 //
 //[Gaiji RAM Map]
 // Bank 0 00000-1FFFFh placed between A0000h-BFFFFh

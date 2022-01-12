@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021 akm
+Copyright (c) 2021-2022 akm
 All rights reserved.
 This content is under the MIT License.
 
@@ -982,6 +982,49 @@ Mode 3 CE 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
 Mode 4 GD 3e1_2 14, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
 VMX  3 C3 3e1_2 15, 3e3_0 6B, 3e5_1c 00, 3e5_1f 02, 3e8_38 01, 3e8_3f 0C
 */
+void generate_HalfDBCS() {
+	for (int i = 0; i < sizeof(tbl_halfdbcs) / 2; i++)
+	{
+		for (int line = 0; line < 24; line++)
+		{
+			FontPattern dwpat;
+			Bit8u pattern = 0;
+			Bit8u pathalf = 0;
+			Bitu charcode = (Bitu)tbl_halfdbcs[i][0];
+			//ps55font_24[(i + 0x400) * 72 + line] = ps55font_24[charcode * 72 + line];
+			dwpat.b[2] = ps55font_24[charcode * 72 + line * 3];
+			dwpat.b[1] = ps55font_24[charcode * 72 + line * 3 + 1];
+			dwpat.b[0] = ps55font_24[charcode * 72 + line * 3 + 2];
+			switch (tbl_halfdbcs[i][1] & 0xf0) {
+			case 0://shrink entire font bitmap
+				pattern = dwpat.b[2];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[(i + 0x400) * 72 + line * 3] = pathalf;
+				pathalf = 0;
+				pattern = dwpat.b[1];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[(i + 0x400) * 72 + line * 3] |= pathalf >> 4;
+				pathalf = 0;
+				pattern = dwpat.b[0];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[(i + 0x400) * 72 + line * 3 + 1] = pathalf;
+				break;
+			case 0x10://copy left half of font bitmap
+				dwpat.d <<= tbl_halfdbcs[i][1] & 0x0f;
+				ps55font_24[(i + 0x400) * 72 + line * 3] = dwpat.b[2];
+				ps55font_24[(i + 0x400) * 72 + line * 3 + 1] = dwpat.b[1] & 0xf0;
+				break;
+			}
+			ps55font_24[(i + 0x400) * 72 + line * 3 + 2] = 0;
+		}
+	}
+}
 
 void SetClock_PS55(Bitu which, Bitu target) {
 	VGA_StartResize();
@@ -1088,7 +1131,7 @@ void PS55_WakeUp(void) {
 void SVGA_Setup_PS55(void) {
 	ps55.prevdata = NOAHDATA;
 	ps55.nextret = NOAHDATA;
-
+	generate_HalfDBCS();
 	ps55.gaiji_ram = new Bit8u[256 * 1024];//256 KB for Gaiji RAM
 
 	IO_RegisterWriteHandler(0x94, &write_p94, IO_MB);
@@ -1115,5 +1158,4 @@ void SVGA_Setup_PS55(void) {
 	svga.accepts_mode = &AcceptsMode_PS55;
 
 	vga.vmemsize = 512 * 1024; // Cannot figure how this was supposed to work for the real card
-	//vga.vmemsize = 512 * 1024;
 }
