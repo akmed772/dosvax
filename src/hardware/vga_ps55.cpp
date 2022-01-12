@@ -982,6 +982,10 @@ Mode 3 CE 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
 Mode 4 GD 3e1_2 14, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
 VMX  3 C3 3e1_2 15, 3e3_0 6B, 3e5_1c 00, 3e5_1f 02, 3e8_38 01, 3e8_3f 0C
 */
+
+//The real PS/55 DA have half-width DBCS fonts placed at IBM code 400-4A5h (or more),
+//but this generates them from DBCS fonts. 
+//These font bitmaps are used by DOS Bunsho Program.
 void generate_HalfDBCS() {
 	for (int i = 0; i < sizeof(tbl_halfdbcs) / 2; i++)
 	{
