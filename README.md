@@ -75,6 +75,8 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4467PS06 (2022/01/12)
+  - Generate half-width DBCS fonts that are used by DOS Bunsho Program. (some extra fonts still cannot display correctly)
 * Build 4467PS05 (2022/01/10)
   - Fix the cursor color at the position where the reverse attribute is set.
 * Build 4467PS04 (2021/12/31)
