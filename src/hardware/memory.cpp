@@ -1,5 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
+ *  Copyright (C) 2021-2022 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -565,8 +566,8 @@ public:
 		 * (Visual C debug mode). We want zeroed memory though. */
 		memset((void*)MemBase,0x00,memsize*1024*1024);
 		if (IS_PS55_ARCH) {//for PS/55
-			//Set FFh at D0000-DFFFFh for XMAEM.SYS
-			memset((void*)(MemBase + 0xD0000), 0xff, 64 * 1024);
+			//Set FFh at D0000-EFFFFh for XMAEM.SYS
+			memset((void*)(MemBase + 0xD0000), 0xff, 128 * 1024);
 		}
 		memory.pages = (memsize*1024*1024)/4096;
 		/* Allocate the data for the different page information blocks */
@@ -587,6 +588,11 @@ public:
 		if (machine==MCH_PCJR) {
 			/* Setup cartridge rom at 0xe0000-0xf0000 */
 			for (i=0xe0;i<0xf0;i++) {
+				memory.phandlers[i] = &rom_page_handler;
+			}
+		} else if (IS_PS55_ARCH) {//for PS/55
+			//Set readonly at 0xd0000-effff
+			for (i = 0xd0; i < 0xf0; i++) {
 				memory.phandlers[i] = &rom_page_handler;
 			}
 		}
