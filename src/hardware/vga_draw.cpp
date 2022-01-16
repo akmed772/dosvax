@@ -542,7 +542,8 @@ skip_cursor:
 //  -Blue |-Green|HGrid |VGrid |-Red  |Revers|FntSet|DBCS/SBCS|
 // 
 // Bit 1 switches the font bank to the Extended SBCS. (In DOS K3.x, it contains APL characters.)
-// Some applications set it as the column is right half of DBCS,
+// DOS Bunsho Program transfers 1/2 and 1/4 fonts fron the font ROM to the Extended SBCS.
+// Some applications set the bit 1 as the column is right half of DBCS,
 // but it does not make any mean. (according to the IBM Technical Reference.)
 // 
 //[Font ROM Map]
@@ -554,7 +555,8 @@ skip_cursor:
 //18000-1BFFFh (98000-9BFFFh;around IBMJ 21C7-22AAh) : Basic SBCS (13 x 30)
 //Bank 5
 //10000-13FFFh (B0000-B3FFFh;around IBMJ 271C-27FFh) : Extended SBCS (13 x 30)
-//14000-?      (B4000-?) : SBCS? used by DOS Bunsho Program
+//14000-146FFh (B4000-B46FFh) : Half-width box drawing characters (7 lines * 4 parts * 64 bytes) used by DOS Bunsho
+//             (B9580-?;IBMJ 2930-295e?) : Full-width box drawing characters
 //
 //[Gaiji RAM Map]
 // Bank 0 00000-1FFFFh placed between A0000h-BFFFFh
@@ -756,6 +758,14 @@ static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 				*draw++ = (ps55.attr_mode & 0x80) ? IRGBtoBGRI(ps55.palette_line) : 2;//horizontal line (white)
 			draw -= 13;
 		}
+		////for debug
+		//*draw++ = 2;//vertical line (blue)
+		//draw--;
+		//if (line == 0 && ~ps55.attr_mode) {//HGrid
+		//	for (Bitu n = 0; n < 13; n++)
+		//		*draw++ = 2;//horizontal line (blue)
+		//	draw -= 13;
+		//}
 		draw += 13;
 		blocks--;// Move to the next column
 	}
