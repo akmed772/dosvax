@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
- *  Copyright (C) 2016-2021 akm
+ *  Copyright (C) 2016-2022 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -116,7 +116,7 @@ static Bitu read_p60(Bitu /*port*/,Bitu /*iolen*/) {
 }
 
 static void write_p60(Bitu /*port*/,Bitu val,Bitu /*iolen*/) {
-	LOG(LOG_KEYBOARD, LOG_NORMAL)("Port 60 write with val %" sBitfs(X), val);
+	//LOG(LOG_KEYBOARD, LOG_NORMAL)("Port 60 write with val %" sBitfs(X), val);
 	switch (keyb.command) {
 	case CMD_NONE:	/* None */
 		/* No active command this would normally get sent to the keyboard then */
