@@ -75,8 +75,10 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4467PS07 (2022/01/16)
+  - Generate 1/4 fonts used by DOS Bunsho Program.
 * Build 4467PS06 (2022/01/13)
-  - Add keyboard support for scancode set 81h used by DOS/V. (The default scancode set inherits the AT keyboard unlike the 5576-002.)
+  - Add keyboard scancode set 81h used by DOS/V. (The default scancode set inherits the AT keyboard unlike the 5576-002.)
   - Generate half-width DBCS fonts that are used by DOS Bunsho Program. (some extra fonts still cannot display correctly)
   - Fix an issue that the keyboard didn't reset the command latch when receiving the system command F0h (Select Alternate Scan Codes).
   - Fix an issue that the emulator puts an error when the AX key is pressed in the PS/55 mode.
@@ -84,7 +86,7 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 * Build 4467PS05 (2022/01/10)
   - Fix the cursor color at the position where the reverse attribute is set.
 * Build 4467PS04 (2021/12/31)
-  - Support DOS J4.0 XMAEM.SYS (80386 XMA Emulator) (Do not use $BANK386.SYS).
+  - Support DOS J4.0 XMAEM.SYS (80386 XMA Emulator). (Do not use $BANK386.SYS. The emulator unexpectedly shut down.)
   - Change the key binding setting (Since the specification of mapper.txt has changed, please overwrite the new file and setup the key binding again).
   - Fix the 5576-001 keyboard emulation trigger key to Left Shift + Left Ctrl + Right Alt (front) keys.
 * Build 4467PS03 (2021/12/27)
