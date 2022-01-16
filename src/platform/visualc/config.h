@@ -1,4 +1,4 @@
-#define VERSION "4467PS05"
+#define VERSION "4467PS07"
 
 /* Define to 1 to enable internal debugger, requires libcurses */
 #if defined(_DEBUG) || defined(ENABLE_DEBUGGER)
