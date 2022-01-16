@@ -77,6 +77,7 @@ public:
 		//LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, addr %x", ps55.mem_select, ps55.mem_bank, addr);
 		switch (ps55.mem_select & 0xf0) {
 		case 0xb0://Gaiji RAM
+			//LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, addr %x (%x)", ps55.mem_select, ps55.mem_bank, addr / 128, addr);
 			addr &= 0x3FFFF;//safety access
 			return ps55.gaiji_ram[addr];
 			break;
@@ -105,9 +106,9 @@ public:
 			index |= ps55.mem_bank;
 			addr += index * 0x40;
 		}
-		//LOG_MSG("PS55_MemHnd: Write to mem %x, addr %x, val %x", ps55.mem_select, addr, val);
 		switch (ps55.mem_select) {
 		case 0xb0://Gaiji RAM
+			//LOG_MSG("PS55_MemHnd: Write to mem %x, addr %x (%x), val %x", ps55.mem_select, addr / 128, addr, val);
 			addr &= 0x3FFFF;//safety access
 			ps55.gaiji_ram[addr] = val;
 			break;
@@ -983,50 +984,149 @@ Mode 4 GD 3e1_2 14, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
 VMX  3 C3 3e1_2 15, 3e3_0 6B, 3e5_1c 00, 3e5_1f 02, 3e8_38 01, 3e8_3f 0C
 */
 
-//The real PS/55 DA have half-width DBCS fonts placed at IBM code 400-4A5h (or more),
-//but this generates them from DBCS fonts. 
-//These font bitmaps are used by DOS Bunsho Program.
+//The PS/55 DA have half-width DBCS fonts placed at font code 400-4A5h (or more).
+//This function generates them from DBCS fonts. 
+//These fonts are used by DOS Bunsho Program.
 void generate_HalfDBCS() {
-	for (int i = 0; i < sizeof(tbl_halfdbcs) / 2; i++)
+	Bitu i = 0;
+	while(tbl_halfdbcs[i][0] != 0)
 	{
 		for (int line = 0; line < 24; line++)
 		{
 			FontPattern dwpat;
 			Bit8u pattern = 0;
 			Bit8u pathalf = 0;
-			Bitu charcode = (Bitu)tbl_halfdbcs[i][0];
-			//ps55font_24[(i + 0x400) * 72 + line] = ps55font_24[charcode * 72 + line];
-			dwpat.b[2] = ps55font_24[charcode * 72 + line * 3];
-			dwpat.b[1] = ps55font_24[charcode * 72 + line * 3 + 1];
-			dwpat.b[0] = ps55font_24[charcode * 72 + line * 3 + 2];
-			switch (tbl_halfdbcs[i][1] & 0xf0) {
+			Bit8u lineto = 0;
+			Bitu copyto = (Bitu)tbl_halfdbcs[i][0];
+			Bitu copyfrom = (Bitu)tbl_halfdbcs[i][1];
+			dwpat.d = 0;
+			if (tbl_halfdbcs[i][2] & 0x80) {
+				//read SBCS font
+				dwpat.b[2] = ps55font_24[0x98000 + copyfrom * 64 + line * 2 + 4];
+				dwpat.b[1] = ps55font_24[0x98000 + copyfrom * 64 + line * 2 + 5];
+				dwpat.d <<= 1;//shift left to remove space
+			}
+			else {
+				//read DBCS font
+				dwpat.b[2] = ps55font_24[copyfrom * 72 + line * 3];
+				dwpat.b[1] = ps55font_24[copyfrom * 72 + line * 3 + 1];
+				dwpat.b[0] = ps55font_24[copyfrom * 72 + line * 3 + 2];
+			}
+			switch (tbl_halfdbcs[i][2] & 0xf0) {
 			case 0://shrink entire font bitmap
+				lineto = line;
+				//clear left half of font bitmap
+				ps55font_24[copyto * 72 + lineto * 3] = 0;
+				ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0x0f;
 				pattern = dwpat.b[2];
 				for (int i = 0; i < 4; i++) {
 					pathalf |= (pattern << i) & (0x80 >> i);
 				}
-				ps55font_24[(i + 0x400) * 72 + line * 3] = pathalf;
+				ps55font_24[copyto * 72 + lineto * 3] = pathalf;
 				pathalf = 0;
 				pattern = dwpat.b[1];
 				for (int i = 0; i < 4; i++) {
 					pathalf |= (pattern << i) & (0x80 >> i);
 				}
-				ps55font_24[(i + 0x400) * 72 + line * 3] |= pathalf >> 4;
+				ps55font_24[copyto * 72 + lineto * 3] |= pathalf >> 4;
 				pathalf = 0;
 				pattern = dwpat.b[0];
 				for (int i = 0; i < 4; i++) {
 					pathalf |= (pattern << i) & (0x80 >> i);
 				}
-				ps55font_24[(i + 0x400) * 72 + line * 3 + 1] = pathalf;
+				ps55font_24[copyto * 72 + lineto * 3 + 1] |= pathalf;
 				break;
-			case 0x10://copy left half of font bitmap
-				dwpat.d <<= tbl_halfdbcs[i][1] & 0x0f;
-				ps55font_24[(i + 0x400) * 72 + line * 3] = dwpat.b[2];
-				ps55font_24[(i + 0x400) * 72 + line * 3 + 1] = dwpat.b[1] & 0xf0;
+			case 0x10://copy half of font bitmap
+			case 0x90:
+				lineto = line;
+				//clear left half of font bitmap
+				ps55font_24[copyto * 72 + lineto * 3] = 0;
+				ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0x0f;
+				dwpat.d <<= tbl_halfdbcs[i][2] & 0x0f;
+				ps55font_24[copyto * 72 + lineto * 3] = dwpat.b[2];
+				ps55font_24[copyto * 72 + lineto * 3 + 1] |= dwpat.b[1] & 0xf0;
+				break;
+			case 0x20://1/4 DBCS font copy to left
+				//set y baseline
+				lineto = (line / 2 + (tbl_halfdbcs[i][2] & 0x0f));
+				if (!(line & 0x01)) {
+					//clear left half of font bitmap
+					ps55font_24[copyto * 72 + lineto * 3] = 0;
+					ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0x0f;
+				}
+				//shrink entire font bitmap
+				pattern = dwpat.b[2];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[copyto * 72 + lineto * 3] |= pathalf;
+				pathalf = 0;
+				pattern = dwpat.b[1];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[copyto * 72 + lineto * 3] |= pathalf >> 4;
+				pathalf = 0;
+				pattern = dwpat.b[0];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[copyto * 72 + lineto * 3 + 1] |= pathalf;
+				break;
+			case 0x30://1/4 DBCS font copy to right
+				lineto = line / 2;
+				if (!(line & 0x01)) {
+					//clear right half of font bitmap
+					ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0xf0;
+					ps55font_24[copyto * 72 + lineto * 3 + 2] = 0x0;
+				}
+				//shrink entire font bitmap
+				pattern = dwpat.b[2];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[copyto * 72 + lineto * 3 + 1] |= pathalf >> 4;
+				pathalf = 0;
+				pattern = dwpat.b[1];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[copyto * 72 + lineto * 3 + 2] |= pathalf;
+				pathalf = 0;
+				pattern = dwpat.b[0];
+				for (int i = 0; i < 4; i++) {
+					pathalf |= (pattern << i) & (0x80 >> i);
+				}
+				ps55font_24[copyto * 72 + lineto * 3 + 2] |= pathalf >> 4;
+				break;
+			case 0xa0://1/4 SBCS font copy to left
+				//set y baseline
+				lineto = (line / 2 + (tbl_halfdbcs[i][2] & 0x0f));
+				if (!(line & 0x01)) {
+					//clear right half of font bitmap
+					ps55font_24[copyto * 72 + lineto * 3] = 0;
+					ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0x0f;
+				}
+				//copy left half of bitmap
+				ps55font_24[copyto * 72 + lineto * 3] |= dwpat.b[2];
+				ps55font_24[copyto * 72 + lineto * 3 + 1] |= dwpat.b[1] & 0xf0;
+				break;
+			case 0xb0://1/4 SBCS font copy to right
+				//set y baseline
+				lineto = (line / 2 + (tbl_halfdbcs[i][2] & 0x0f));
+				if (!(line & 0x01)) {
+					//clear right half of font bitmap
+					ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0xf0;
+					ps55font_24[copyto * 72 + lineto * 3 + 2] = 0;
+				}
+				//copy left half of bitmap
+				ps55font_24[copyto * 72 + lineto * 3 + 1] |= dwpat.b[2] >> 4;
+				ps55font_24[copyto * 72 + lineto * 3 + 2] |= dwpat.b[2] << 4;
+				ps55font_24[copyto * 72 + lineto * 3 + 2] |= dwpat.b[1] >> 4;
 				break;
 			}
-			ps55font_24[(i + 0x400) * 72 + line * 3 + 2] = 0;
 		}
+		i++;
 	}
 }
 
