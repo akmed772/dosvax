@@ -614,7 +614,7 @@ static Bitu INT17_Handler(void) {
 		}
 		break;
 	default:
-		E_Exit("Unhandled INT 17 call %2X",reg_ah);
+		LOG(LOG_BIOS, LOG_ERROR)("Unhandled INT 17 call %2X",reg_ah);
 	};
 	return CBRET_NONE;
 }
@@ -1020,9 +1020,27 @@ static Bitu INT15_Handler(void) {
 		reg_ah=0x86;
 		CALLBACK_SCF(true);
 		break;
-	case 0xc4:	/* BIOS POS Programm option Select */
-		LOG(LOG_BIOS,LOG_NORMAL)("INT15:Function %X called, bios mouse not supported",reg_ah);
-		CALLBACK_SCF(true);
+	case 0xc4:	/* BIOS POS Programm option Select */ // for PS/55
+		//LOG(LOG_BIOS,LOG_NORMAL)("INT15:Function %X called, bios mouse not supported",reg_ah);
+		//CALLBACK_SCF(true);
+		LOG(LOG_BIOS, LOG_NORMAL)("INT15:Function C4%02X, BL=%02X", reg_al, reg_bl);
+		switch (reg_al) {
+		case 0x00:		// return base POS register address (not support)
+			CALLBACK_SCF(true);
+			break;
+		case 0x01:		// enable adapter setup (BL = Slot number)
+		{
+			Bit8u cardno = reg_bl;
+			if(cardno > 8) CALLBACK_SCF(true);
+			else {
+				IO_Write(0x96, 0x08 | (cardno - 1));//enter setup
+			}
+		}
+			break;
+		case 0x02:		// disable adapter setup
+			IO_Write(0x96, 0x00);//exit setup
+			break;
+		}
 		break;
 	default:
 	unhandled:
