@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
- *  Copyright (C) 2016-2021 akm
+ *  Copyright (C) 2016-2022 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -631,10 +631,20 @@ Bitu getfont_ps55dbcs(Bitu code, Bitu line) {
 }
 
 //Reverse the bit order of attribute code IRGB to BGRI (used in Mode 3 and Cursor Color)
-Bit8u IRGBtoBGRI(Bit8u attr)
+inline Bit8u IRGBtoBGRI(Bit8u attr)
 {
 	attr = (attr & 0x01) << 7 | (attr & 0x02) << 5 | (attr & 0x04) << 3 | (attr & 0x08) << 1;
 	return attr >>= 4;
+}
+//Get the foreground color from the attribute byte
+inline Bit8u getPS55ForeColor(Bit8u attr)
+{
+	Bit8u foreground = ~attr & 0x08;// 0000 1000
+	foreground <<= 2; //0010 0000
+	foreground |= ~attr & 0xc0;// 1110 0000
+	foreground >>= 4;//0000 1110
+	if (ps55.attr_mode & 0x40) foreground |= 0x01;
+	return foreground;
 }
 //Display Adapter Mode 8, E Drawing
 static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
@@ -657,15 +667,10 @@ static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 		if (ps55.attr_mode & 0x80)//IO 3E8h, Index 3Dh
 		{//--Parse attribute byte in color mode--
 			background = 0;//fixed black (the only way to change background color is programming PAL)
-			foreground = ~attr & 0x08;// 0000 1000
-			foreground <<= 2; //0010 0000
-			foreground |= ~attr & 0xc0;// 1110 0000
-			foreground >>= 4;//0000 1110
-			if (ps55.attr_mode & 0x40) foreground |= 0x01;
+			foreground = getPS55ForeColor(attr);
 			if (attr & 0x04) {//reverse 0000 0100
-				tempcolor = background;
 				background = foreground;
-				foreground = tempcolor;
+				foreground = 0;
 			}
 		}
 		else
@@ -778,29 +783,19 @@ static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 			Bitu index = attr_addr * 13;
 			draw = (Bit8u*)(&TempLine[index]);
 			Bit8u cursorwidth = (ps55.cursor_wide ? 26 : 13);
-			//if (ps55.attr_mode & 0x80)//color mode
-			//foreground = ((ps55.cursor_color & 0x07) << 1);
-			foreground = (ps55.attr_mode & 0x80) ? IRGBtoBGRI(ps55.cursor_color) : 2;
-			if(vga.tandy.draw_base[vga.draw.cursor.address + 1] & 0x04) foreground = 0;//Color 0 if reverse
-			//foreground = IRGBtoBGRI(foreground);
-			//foreground = IRGBtoBGRI(ps55.cursor_color & 0x0f);
-			//foreground = ~ps55.cursor_color & 0x0f;
-			//foreground = IRGBtoBGRI(~ps55.cursor_color & 0x0f);
-		//else//mono mode
-			//foreground = 16;//green
-		//if (ps55.attr_mode & 0x80)//color mode
-		//{
-		//	foreground = ~vga.tandy.draw_base[vga.draw.cursor.address + 1] & 0x08;// 0000 1000
-		//	foreground <<= 2; //0010 0000
-		//	foreground |= ~foreground & 0xc0;// 1110 0000
-		//	foreground >>= 4;//0000 1110
-		//	if (ps55.attr_mode & 0x40) foreground |= 0x01;
-		//}
-		//else//mono mode
-		//	foreground = 2;//green
-			//foreground = vga.attr.palette[foreground];
+			Bit8u cursorcolor = (ps55.attr_mode & 0x80) ? IRGBtoBGRI(ps55.cursor_color) : 2;//Color 2 if mode 8
+			Bit8u attr = vga.tandy.draw_base[vga.draw.cursor.address + 1];
+			foreground = (ps55.attr_mode & 0x80) ? getPS55ForeColor(attr) : (attr & 0x08) ? 3 : 2;
+			background = 0;
+			if (attr & 0x04) {//Color 0 if reverse
+				background = foreground;
+				foreground = 0;
+			}
 			for (Bitu i = 0; i < cursorwidth; i++) {
-				*draw++ = foreground;
+				if (vga.attr.palette[*draw] == vga.attr.palette[cursorcolor] || vga.attr.palette[background] == vga.attr.palette[cursorcolor])
+					*draw++ = (vga.attr.palette[*draw] == vga.attr.palette[background]) ? foreground : background;//PEo
+				else
+					*draw++ = (*draw == background) ? cursorcolor : *draw;//PEx VZo MIFESo DBo
 			}
 		}
 	}

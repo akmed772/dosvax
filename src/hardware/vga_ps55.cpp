@@ -309,12 +309,12 @@ Bitu MCA_Card_Reg_Read(Bitu port, Bitu len) {
 }
 #ifdef _DEBUG
 void PS55_CRTC_Write(Bitu port, Bitu val, Bitu len) {
-	//if (len == 2) LOG_MSG("PS55_CRTC: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-	//else LOG_MSG("PS55_CRTC: Write to port %x, val %02xh (%d), len %x", port,val, val, len);
+	if (len == 2) LOG_MSG("PS55_CRTC: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+	else LOG_MSG("!!PS55_CRTC: Write to port %x, val %02xh (%d), len %x", port,val, val, len);
 }
 
 Bitu PS55_CRTC_Read(Bitu port, Bitu len) {
-	//LOG_MSG("PS55_CRTC: Read from port %x, len %x", port, len);
+	LOG_MSG("!!PS55_CRTC: Read from port %x, len %x", port, len);
 	return 0;
 }
 #endif
@@ -627,14 +627,13 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 }
 
 void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
-#ifdef C_HEAVY_DEBUG
-	if (ps55.latch_3e8) LOG_MSG("PS55_ATTR: Write val %02xh (%d), idx %x", val, val, ps55.idx_3e8);
-	else LOG_MSG("PS55_ATTR: Write val %04xh (%d), not latched", val, val);
-#endif
 	Bitu data = 0;
 	Bit8u chgbits;
-	if (len == 1 && ps55.latch_3e8 == false)
+	if (len == 1 && ps55.latch_3e8 == false && port == 0x3e8)
 	{
+#ifdef C_HEAVY_DEBUG
+		LOG_MSG("PS55_ATTR: Set index %02xh (%d), not latched", val, val);
+#endif
 		ps55.idx_3e8 = val;
 		ps55.latch_3e8 = true;
 		if (val & 0x20) vga.attr.disabled &= ~1;
@@ -642,10 +641,19 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 	}
 	else {
 		if (len == 2) {
+#ifdef C_HEAVY_DEBUG
+			LOG_MSG("PS55_ATTR: Write val %04xh (%d), previdx %x", val, val, ps55.idx_3e8);
+#endif
 			ps55.idx_3e8 = val & 0xff;
 			data = val >> 8;
 		}
-		else if (ps55.latch_3e8 == true) data = val;
+		else
+		{
+			data = val;
+#ifdef C_HEAVY_DEBUG
+			LOG_MSG("PS55_ATTR: Write val %02xh (%d), idx %x", val, val, ps55.idx_3e8);
+#endif
+		}
 		ps55.latch_3e8 = false;
 		//!!!!!  ps55.idx_3e8=Index, data=Data   !!!!!
 		switch (ps55.idx_3e8 & 0x1f) {
@@ -667,25 +675,30 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x1a://Cursor color
 #ifdef C_HEAVY_DEBUG
 			if ((ps55.cursor_color & 0x0f) ^ (data & 0x0f)) {
-				LOG_MSG("PS55_ATTR: The cursor color is changed to %02xh (%d)", data & 0x0f, data & 0x0f);
+				LOG_MSG("PS55_ATTR: The cursor color has changed to %02xh (%d)", data & 0x0f, data & 0x0f);
 			}
 #endif
 			ps55.cursor_color = data & 0x0f;
 			return;
 		case 0x1b://Cursor blinking speed
+#ifdef C_HEAVY_DEBUG
+			if (ps55.cursor_options ^ data) {
+				LOG_MSG("PS55_ATTR: The cursor option has changed to %02xh (%d)", data, data);
+			}
+#endif
 			ps55.cursor_options = data;
 			if (data & 0x01)
 				vga.draw.cursor.enabled = true;
 			else
 				vga.draw.cursor.enabled = false;
 			switch (data & 0x18) {
-			case 0x08://slow
+			case 0x08://fast blinking
 				ps55.cursor_blinkspeed = 0x10;
 				break;
-			case 0x18://fast
+			case 0x18://slow blinking
 				ps55.cursor_blinkspeed = 0x20;
 				break;
-			default://stop blinking
+			default://don't blinking
 				ps55.cursor_blinkspeed = 0xFF;
 			}
 			return;
@@ -828,8 +841,10 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 			ret = read_p3c1(port, len);
 			break;
 		}
-		//LOG_MSG("PS55_ATTR: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e8, len, ret);
-		ps55.latch_3e8 = (ps55.latch_3e8) ? false : true;//toggle latch
+#ifdef C_HEAVY_DEBUG
+		LOG_MSG("PS55_ATTR: Read from port %x, idx %2x, len %x, ret %2x", port, ps55.idx_3e8, len, ret);
+#endif
+		//ps55.latch_3e8 = (ps55.latch_3e8) ? false : true;//toggle latch
 		//ps55.latch_3e8 = false;//reset latch
 		break;
 	case 0x3eb://Graphics Controller Registers
@@ -1204,10 +1219,11 @@ void PS55_WakeUp(void) {
 	//IO_RegisterWriteHandler(0x3e7, &PS55_GC_Write, IO_MB | IO_MW);
 	//IO_RegisterReadHandler(0x3e7, &PS55_GC_Read, IO_MB | IO_MW);
 	IO_RegisterWriteHandler(0x3e8, &PS55_ATTR_Write, IO_MB | IO_MW);//Attribute (Index, Data)
-	//IO_RegisterReadHandler(0x3e8, &PS55_GC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3e9, &PS55_GC_Data_Write, IO_MB | IO_MW);//Attribute (Read Only)
+#ifdef C_HEAVY_DEBUG
+	IO_RegisterReadHandler(0x3e8, &PS55_CRTC_Read, IO_MB | IO_MW);//FOR DEBUG
+#endif
+	IO_RegisterWriteHandler(0x3e9, &PS55_ATTR_Write, IO_MB | IO_MW);//Attribute (Data)
 	IO_RegisterReadHandler(0x3e9, &PS55_GC_Read, IO_MB | IO_MW);
-
 	IO_RegisterWriteHandler(0x3ea, &PS55_GC_Index_Write, IO_MB | IO_MW); //GFX (Index)
 	IO_RegisterReadHandler(0x3ea, &PS55_GC_Read, IO_MB | IO_MW); //GFX
 	IO_RegisterWriteHandler(0x3eb, &PS55_GC_Data_Write, IO_MB | IO_MW); //GFX (Data)
