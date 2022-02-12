@@ -75,6 +75,10 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4467PS08 (2022/02/11)
+  - Improve the text cursor drawing method.
+  - Change the register latch operation of the Attribute Controller.
+  - Ignore the unhandled exception in BIOS Int 17h (Printer).
 * Build 4467PS07 (2022/01/16)
   - Generate 1/4 fonts used by DOS Bunsho Program.
 * Build 4467PS06 (2022/01/13)
@@ -101,6 +105,6 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
   - Add the emulation equivalent to IBMJ PS/55 model 5550-S/T/V. See README_PS55.txt for usage.
 * For older version history, refer to README_ja.md (in Japanese).
 
-Copyright (C) 2016-2021 akm.
+Copyright (C) 2016-2022 akm.
 
 =============================README.txt END=============================
