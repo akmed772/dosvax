@@ -1,9 +1,6 @@
 DOSVAX
 =======
-
-Source code is located on GitHub <https://github.com/akmed772/dosvax>.
-
-You can obtain the binary file for Windows from my homepage at <http://radioc.web.fc2.com/>.
+You can obtain binary and source code from GitHub <https://github.com/akmed772/dosvax>.
 
 ### License
 
@@ -28,7 +25,7 @@ Also, it experimentally implements the PS/55 text mode emulation equivalent to t
 * Additional functions of the printer BIOS
 * Incomplete implementation of Kana shift lock
 * Incomplete support for Japanese 106 keyboard due to the limitation of the component (SDL 1.2) on which DOSBox depends.
-* MOUSE.SYS that comes with MS-DOS 3.21 cannot work because DOSBox doesn't support the bus mouse. Use MOUSE.COM that comes with IBM DOS J4.0/V and later.
+* MOUSE.SYS of MS-DOS 3.21 cannot work because DOSBox doesn't support the bus mouse. Use MOUSE.COM of IBM DOS J4.0/V and later.
 
 ### System Requirements
 
@@ -40,7 +37,7 @@ Also, it experimentally implements the PS/55 text mode emulation equivalent to t
 
 ### How to use
 
-Run dosbox.exe. Dosbox_debug.exe has a debug monitor function, but the operation speed becomes a bit slower. Please refer to the DOSBox documentation for basic usage. The following describes focusing on extensions of DOSVAX.
+Run dosbox.exe. Dosbox_debug.exe has a debug monitor feature, but the operation speed becomes a bit slower. Please refer to the DOSBox documentation for basic usage. The following explains extensions in DOSVAX.
 
 #### Key assignments (AX)
 
@@ -108,6 +105,6 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
   - Add the emulation equivalent to IBMJ PS/55 model 5550-S/T/V. See README_PS55.txt for usage.
 * For older version history, refer to README_ja.md (in Japanese).
 
-Copyright (C) 2016-2022 akm.
+Copyright (C) 2016-2023 akm.
 
 =============================README.txt END=============================
