@@ -75,6 +75,9 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4481PS09 (2023/01/31)
+  - Fix an issue that JEGA initialization has not been called since the Build 4467PS01.
+  - Merge changes from DOSBox SVR r4467 to r4481.
 * Build 4467PS08 (2022/02/11)
   - Improve the text cursor drawing method.
   - Change the register latch operation of the Attribute Controller.
@@ -90,7 +93,7 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 * Build 4467PS05 (2022/01/10)
   - Fix the cursor color at the position where the reverse attribute is set.
 * Build 4467PS04 (2021/12/31)
-  - Support DOS J4.0 XMAEM.SYS (80386 XMA Emulator). (Do not use $BANK386.SYS. The emulator unexpectedly shut down.)
+  - Partially support for DOS J4.0 XMAEM.SYS (80386 XMA Emulator). (For Japanese DOS K3.x users, do not use $BANK386.SYS. The emulator unexpectedly shuts down.)
   - Change the key binding setting (Since the specification of mapper.txt has changed, please overwrite the new file and setup the key binding again).
   - Fix the 5576-001 keyboard emulation trigger key to Left Shift + Left Ctrl + Right Alt (front) keys.
 * Build 4467PS03 (2021/12/27)

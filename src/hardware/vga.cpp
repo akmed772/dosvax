@@ -263,7 +263,8 @@ void SVGA_Setup_Driver(void) {
 		SVGA_Setup_PS55();
 		break;
 	default:
-		vga.vmemsize = vga.vmemwrap = 256*1024;
+		if (IS_AX_ARCH) SVGA_Setup_JEGA();//for AX
+		else vga.vmemsize = vga.vmemwrap = 256 * 1024;
 		break;
 	}
 }

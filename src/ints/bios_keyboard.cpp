@@ -278,7 +278,8 @@ static Bitu IRQ1_Handler(void) {
 	//  	LOG_MSG("key input %x %x %x %x",scancode,flags1,flags2,flags3);
 	switch (scancode) {
 		/* First the hard ones  */
-	case 0xfa:	/* ack. Do nothing for now */
+	case 0xfa:	/* Acknowledge */
+		leds |=0x10;
 		break;
 	case 0xe1:	/* Extended key special. Only pause uses this */
 		flags3 |= 0x01;

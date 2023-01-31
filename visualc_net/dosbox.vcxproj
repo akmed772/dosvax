@@ -268,8 +268,11 @@ xcopy /y /d  "$(ProjectDir)..\..\..\Lib\zlib-1.2.3-lib\lib\*.dll" "$(ProjectDir)
     <ClCompile Include="..\src\hardware\ipxserver.cpp" />
     <ClCompile Include="..\src\hardware\joystick.cpp" />
     <ClCompile Include="..\src\hardware\keyboard.cpp" />
+    <ClCompile Include="..\src\hardware\mame\fmopl.cpp" />
     <ClCompile Include="..\src\hardware\mame\saa1099.cpp" />
     <ClCompile Include="..\src\hardware\mame\sn76496.cpp" />
+    <ClCompile Include="..\src\hardware\mame\ymdeltat.cpp" />
+    <ClCompile Include="..\src\hardware\mame\ymf262.cpp" />
     <ClCompile Include="..\src\hardware\memory.cpp" />
     <ClCompile Include="..\src\hardware\mixer.cpp" />
     <ClCompile Include="..\src\hardware\pci_bus.cpp" />
@@ -396,8 +399,11 @@ xcopy /y /d  "$(ProjectDir)..\..\..\Lib\zlib-1.2.3-lib\lib\*.dll" "$(ProjectDir)
     <ClInclude Include="..\src\dos\cdrom.h" />
     <ClInclude Include="..\src\hardware\font-switch.h" />
     <ClInclude Include="..\src\hardware\mame\emu.h" />
+    <ClInclude Include="..\src\hardware\mame\fmopl.h" />
     <ClInclude Include="..\src\hardware\mame\saa1099.h" />
     <ClInclude Include="..\src\hardware\mame\sn76496.h" />
+    <ClInclude Include="..\src\hardware\mame\ymdeltat.h" />
+    <ClInclude Include="..\src\hardware\mame\ymf262.h" />
     <ClInclude Include="..\src\hardware\serialport\directserial.h" />
     <ClInclude Include="..\src\hardware\serialport\libserial.h" />
     <ClInclude Include="..\src\hardware\serialport\misc_util.h" />
@@ -452,6 +458,9 @@ xcopy /y /d  "$(ProjectDir)..\..\..\Lib\zlib-1.2.3-lib\lib\*.dll" "$(ProjectDir)
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\src\dosbox.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\hardware\mame\Makefile.am" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -427,7 +427,7 @@ dowrite:
 void INT10_SetCursorPos(Bit8u row,Bit8u col,Bit8u page) {
 	Bit16u address;
 	//LOG(LOG_INT10, LOG_NORMAL)("INT10_SetCursorPos row %d, col %d, page %d", row,col, page);
-	//if (page>7) LOG(LOG_INT10,LOG_ERROR)("INT10_SetCursorPos page %d",page);
+	if (page>7) LOG(LOG_INT10,LOG_ERROR)("INT10_SetCursorPos page %d",page);
 	// Bios cursor pos
 	real_writeb(BIOSMEM_SEG,BIOSMEM_CURSOR_POS+page*2,col);
 	real_writeb(BIOSMEM_SEG,BIOSMEM_CURSOR_POS+page*2+1,row);
@@ -450,7 +450,7 @@ void INT10_SetCursorPos(Bit8u row,Bit8u col,Bit8u page) {
 
 void ReadCharAttr(Bit16u col,Bit16u row,Bit8u page,Bit16u * result) {
 	/* Externally used by the mouse routine */
-	PhysPt fontdata;
+	RealPt fontdata;
 	Bit16u cols = real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS);
 	BIOS_CHEIGHT;
 	//Bitu x,y,pos = row*real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)+col;
@@ -475,13 +475,13 @@ void ReadCharAttr(Bit16u col,Bit16u row,Bit8u page,Bit16u * result) {
 		switch (machine) {
 		case MCH_CGA:
 		case MCH_HERC:
-			fontdata=PhysMake(0xf000,0xfa6e);
+			fontdata=RealMake(0xf000,0xfa6e);
 			break;
 		case TANDY_ARCH_CASE:
-			fontdata=Real2Phys(RealGetVec(0x44));
+			fontdata=RealGetVec(0x44);
 			break;
 		default:
-			fontdata=Real2Phys(RealGetVec(0x43));
+			fontdata=RealGetVec(0x43);
 			break;
 		}
 		break;
@@ -492,7 +492,7 @@ void ReadCharAttr(Bit16u col,Bit16u row,Bit8u page,Bit16u * result) {
 				return;
 			}
 		}
-		fontdata=Real2Phys(RealGetVec(0x43));
+		fontdata=RealGetVec(0x43);
 		break;
 	}
 
@@ -500,13 +500,14 @@ void ReadCharAttr(Bit16u col,Bit16u row,Bit8u page,Bit16u * result) {
 
 	for (Bit16u chr=0;chr<256;chr++) {
 
-		if (chr==128 && split_chr) fontdata=Real2Phys(RealGetVec(0x1f));
+		if (chr==128 && split_chr) fontdata=RealGetVec(0x1f);
 
 		bool error=false;
 		Bit16u ty=(Bit16u)y;
 		for (Bit8u h=0;h<cheight;h++) {
 			Bit8u bitsel=128;
-			Bit8u bitline=mem_readb(fontdata++);
+			Bit8u bitline=mem_readb(Real2Phys(fontdata));
+			fontdata=RealMake(RealSeg(fontdata),RealOff(fontdata)+1);
 			Bit8u res=0;
 			Bit8u vidline=0;
 			Bit16u tx=(Bit16u)x;
@@ -520,7 +521,7 @@ void ReadCharAttr(Bit16u col,Bit16u row,Bit8u page,Bit16u * result) {
 			ty++;
 			if(bitline != vidline){
 				/* It's not character 'chr', move on to the next */
-				fontdata+=(cheight-h-1);
+				fontdata=RealMake(RealSeg(fontdata),RealOff(fontdata)+cheight-h-1);
 				error = true;
 				break;
 			}
@@ -535,6 +536,7 @@ void ReadCharAttr(Bit16u col,Bit16u row,Bit8u page,Bit16u * result) {
 	*result = 0;
 }
 void INT10_ReadCharAttr(Bit16u * result,Bit8u page) {
+	if(CurMode->ptotal==1) page=0;
 	if(page==0xFF) page=real_readb(BIOSMEM_SEG,BIOSMEM_CURRENT_PAGE);
 	Bit8u cur_row=CURSOR_POS_ROW(page);
 	Bit8u cur_col=CURSOR_POS_COL(page);

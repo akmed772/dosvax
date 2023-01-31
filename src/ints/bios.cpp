@@ -566,11 +566,11 @@ static Bitu INT8_Handler(void) {
 #endif
 	mem_writed(BIOS_TIMER,value);
 
-	/* decrease floppy motor timer */
+	/* decrement FDD motor timeout counter; roll over on earlier PC, stop at zero on later PC */
 	Bit8u val = mem_readb(BIOS_DISK_MOTOR_TIMEOUT);
-	if (val) mem_writeb(BIOS_DISK_MOTOR_TIMEOUT,val-1);
-	/* and running drive */
-	mem_writeb(BIOS_DRIVE_RUNNING,mem_readb(BIOS_DRIVE_RUNNING) & 0xF0);
+	if (val || !IS_EGAVGA_ARCH) mem_writeb(BIOS_DISK_MOTOR_TIMEOUT,val-1);
+	/* clear FDD motor bits when counter reaches zero */
+	if (val == 1) mem_writeb(BIOS_DRIVE_RUNNING,mem_readb(BIOS_DRIVE_RUNNING) & 0xF0);
 	return CBRET_NONE;
 }
 #undef DOSBOX_CLOCKSYNC
@@ -1297,6 +1297,16 @@ public:
 			phys_writeb(0xFFE6E + 0, 0xEA);				// FARJMP
 			phys_writew(0xFFE6E + 1, RealOff(rptr));	// offset
 			phys_writew(0xFFE6E + 3, RealSeg(rptr));	// segment
+
+
+			//rptr = callback[2].Get_RealPointer();		//INT
+			//phys_writeb(0xFF841 + 0, 0xEA);				// FARJMP
+			//phys_writew(0xFF841 + 1, RealOff(rptr));	// offset
+			//phys_writew(0xFF841 + 3, RealSeg(rptr));	// segment
+			//rptr = callback[1].Get_RealPointer();		//INT
+			//phys_writeb(0xFF84D + 0, 0xEA);				// FARJMP
+			//phys_writew(0xFF84D + 1, RealOff(rptr));	// offset
+			//phys_writew(0xFF84D + 3, RealSeg(rptr));	// segment
 		}
 
 		tandy_sb.port=0;

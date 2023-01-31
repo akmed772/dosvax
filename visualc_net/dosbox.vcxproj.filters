@@ -440,6 +440,15 @@
     <ClCompile Include="..\src\hardware\vga_ps55.cpp">
       <Filter>Source Files\hardware\vga</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\hardware\mame\fmopl.cpp">
+      <Filter>Source Files\hardware\sound\mame</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\hardware\mame\ymdeltat.cpp">
+      <Filter>Source Files\hardware\sound\mame</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\hardware\mame\ymf262.cpp">
+      <Filter>Source Files\hardware\sound\mame</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\src\winres.rc">
@@ -753,8 +762,22 @@
     <ClInclude Include="..\include\jsupport.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="..\src\hardware\mame\fmopl.h">
+      <Filter>Source Files\hardware\sound\mame</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\hardware\mame\ymdeltat.h">
+      <Filter>Source Files\hardware\sound\mame</Filter>
+    </ClInclude>
+    <ClInclude Include="..\src\hardware\mame\ymf262.h">
+      <Filter>Source Files\hardware\sound\mame</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="..\src\dosbox.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\src\hardware\mame\Makefile.am">
+      <Filter>Source Files\hardware\sound\mame</Filter>
+    </None>
   </ItemGroup>
 </Project>

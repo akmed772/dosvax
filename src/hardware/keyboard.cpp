@@ -421,7 +421,7 @@ void KEYBOARD_AddKey(KBD_KEYS keytype, bool pressed) {
 			E_Exit("Unsupported key press");
 			break;
 		}
-		//5576-001 keyboard emulation enabled once by pressing L-Shift (ª) + L-Ctrl + L-Alt (‘O–Ê)
+		//5576-001 keyboard emulation enabled once by pressing L-Shift (ª) + L-Ctrl + R-Alt (‘O–Ê)
 		if (keyb.key5576special) {
 			switch (keytype) {
 			case KBD_f3:ret = 0x76; break;//Cr Bnk/—ÌˆæŒÄo (Call Range)/All Cr/“o˜^ (Register)

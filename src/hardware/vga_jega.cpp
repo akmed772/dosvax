@@ -30,7 +30,7 @@ JEGA_DATA jega;
 // Store font
 void JEGA_writeFont() {
 #if C_HEAVY_DEBUG
-	LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:GFX:JEGA:writeFont function is called.");
+	//LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:GFX:JEGA:writeFont function is called.");
 #endif
 	jega.RSTAT &= ~0x02;
 	Bitu chr = jega.RDFFB;
@@ -59,7 +59,7 @@ void JEGA_writeFont() {
 // Read font
 void JEGA_readFont() {
 #if C_HEAVY_DEBUG
-	LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:GFX:JEGA:readFont function is called.");
+	//LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:GFX:JEGA:readFont function is called.");
 #endif
 	jega.RSTAT &= ~0x02;
 	Bitu chr = jega.RDFFB;
@@ -87,7 +87,7 @@ void JEGA_readFont() {
 
 void write_p3d5_jega(Bitu reg, Bitu val, Bitu iolen) {
 #if C_HEAVY_DEBUG
-	LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:GFX:JEGA:Write register %02X: %02X", reg, val);
+	//LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:GFX:JEGA:Write register %02X: %02X", reg, val);
 #endif
 	switch (reg) {
 	case 0xb9://Mode register 1
@@ -232,7 +232,7 @@ Bitu read_p3d5_jega(Bitu reg, Bitu iolen) {
 		break;
 	}
 #if C_HEAVY_DEBUG
-	LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:GFX:JEGA:Read register %02X: %02X", reg, ret);
+	//LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:GFX:JEGA:Read register %02X: %02X", reg, ret);
 #endif
 	return ret;
 }
