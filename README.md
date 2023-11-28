@@ -73,7 +73,7 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 ### Version History
 
 * Build 4481PS10 (2023/11/28)
-  - Added a patch program (dcbpatch) for DOS J4.x/J5.x to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. This changes data of the Display Configuration Block to disable IBM 5550's Graphics Support Functions that are not supported by DOSVAX.
+  - Add a patch program (dcbpatch) for DOS J4.x/J5.x to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable IBM 5550's Graphics Support Functions that are not supported by DOSVAX.
   - Disable the input method (IME) to avoid disturbing keystrokes. (sdlmain.c)
 * Build 4481PS09 (2023/01/31)
   - Fix an issue that JEGA initialization has not been called since the Build 4467PS01.
