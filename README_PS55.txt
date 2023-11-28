@@ -23,6 +23,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
 
+- dcbpatch.com - 
+
+This is a patch program for DOS J4.0 / J5.0 to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable the Graphics Support Function (It seems an accelerated graphics processor that was originally implemented by an add-on card for IBM 5550) that are not supported by DOSVAX.
+How to use:
+	Put into the diskimage, and run "dcbpatch" in DOS command line. You can add the command in AUTOEXEC.BAT.
+	Running "dcbpatch f" will run it as a background program, and it patches the DCB every time the display mode has been changed (DOS Function Int 10h, AH=00h). Usually, you don't have to do it unless you run DOSVAX with the PS/55 monochrome display mode (still not supported).
+
 - Infrequency Questions -
 
 Q. How to use?

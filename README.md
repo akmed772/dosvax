@@ -10,7 +10,7 @@ GNU GPLv2 if there is no statement in the document or source code. See also ABOU
 
 This is an emulator that reproduces the AX specification personal computer commonly called the Japanese PC/AT compatible machine. It is a folk of DOSBox, and is possible to run IBM PC software and DOS/V, but the goal is to run applications developed for AX machines. Please prepare the Japanese MS-DOS for AX. The BIOS ROM is not required, but you need to make Japanese FONTX2 font files to display Japanese characters.
 
-Also, it experimentally implements the PS/55 text mode emulation equivalent to the IBM Japan PS/55 model 5550-S/T/V.
+Also, it experimentally implements the PS/55 text mode emulation equivalent to the IBM Japan PS/55 model 5550-S/T/V. (PS/55 was developed aside from the AX, so there is no compatibility in architectures.)
 
 ### Features (AX)
 
@@ -72,6 +72,9 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4481PS10 (2023/11/28)
+  - Added a patch program (dcbpatch) for DOS J4.x/J5.x to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. This changes data of the Display Configuration Block to disable IBM 5550's Graphics Support Functions that are not supported by DOSVAX.
+  - Disable the input method (IME) to avoid disturbing keystrokes. (sdlmain.c)
 * Build 4481PS09 (2023/01/31)
   - Fix an issue that JEGA initialization has not been called since the Build 4467PS01.
   - Merge changes from DOSBox SVR r4467 to r4481.
