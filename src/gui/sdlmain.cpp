@@ -1,5 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
+ *  Copyright (C) 2023 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -30,6 +31,8 @@
 #ifdef WIN32
 #include <signal.h>
 #include <process.h>
+#include <dos_inc.h>
+#include <imm.h>//DOSVAX
 #endif
 
 #include "cross.h"
@@ -2601,6 +2604,7 @@ int main(int argc, char* argv[]) {
 
 #if defined(WIN32)
 	SetConsoleCtrlHandler((PHANDLER_ROUTINE) ConsoleEventHandler,TRUE);
+	ImmDisableIME((DWORD)(-1));//DOSVAX
 #endif
 
 #ifdef OS2
