@@ -43,6 +43,7 @@
 #include "ints/int10.h"
 #include "render.h"
 #include "pci_bus.h"
+#include "ps55.h"//for DOSVAX
 
 Config * control;
 MachineType machine;
@@ -383,6 +384,7 @@ static void DOSBOX_RealInit(Section * sec) {
 //	else if (mtype == "vga_pvga1a")   { svgaCard = SVGA_ParadisePVGA1A; }
 	else if (mtype == "svga_paradise") { svgaCard = SVGA_ParadisePVGA1A; }
 	else if (mtype == "svga_ps55") { svgaCard = SVGA_PS55; }
+	else if (mtype == "svga_ps55mono") { svgaCard = SVGA_PS55; ps55.palette_mono = true; }
 	else if (mtype == "vgaonly")      { svgaCard = SVGA_None; }
 	else E_Exit("DOSBOX:Unknown machine type %s",mtype.c_str());
 
@@ -418,7 +420,7 @@ void DOSBOX_Init(void) {
 	const char* machines[] = {
 		"hercules", "cga", "tandy", "pcjr", "ega", "jega", //for AX
 		"vgaonly", "svga_s3", "svga_et3000", "svga_et4000",
-		"svga_paradise", "svga_ps55", "vesa_nolfb", "vesa_oldvbe", 0};//for PS/55
+		"svga_paradise", "svga_ps55", "svga_ps55mono", "vesa_nolfb", "vesa_oldvbe", 0};//for PS/55
 	secprop=control->AddSection_prop("dosbox",&DOSBOX_RealInit);
 	Pstring = secprop->Add_path("language",Property::Changeable::Always,"");
 	Pstring->Set_help("Select another language file.");
@@ -436,11 +438,13 @@ void DOSBOX_Init(void) {
 	Pstring = secprop->Add_path("jfontdbcs",Property::Changeable::OnlyAtStart,"");
 	Pstring->Set_help("FONTX2 file used to rendering DBCS characters (16x16) in JEGA mode.");
 	Pstring = secprop->Add_path("jfont24sbcs", Property::Changeable::OnlyAtStart, "");
-	Pstring->Set_help("FONTX2 file used to rendering SBCS characters (12x24) in PS/55 mode.");
+	Pstring->Set_help("FONTX2 or binary file used to rendering SBCS characters (12x24) in PS/55 mode.");
 	Pstring = secprop->Add_path("jfont24dbcs", Property::Changeable::OnlyAtStart, "");
 	Pstring->Set_help("FONTX2 file used to rendering DBCS characters (24x24) in PS/55 mode.");
 	Pstring = secprop->Add_path("jfont24sbex", Property::Changeable::OnlyAtStart, "");
-	Pstring->Set_help("FONTX2 file used to rendering Extended SBCS characters in PS/55 mode.");
+	Pstring->Set_help("Binary font file used to rendering Extended SBCS characters in PS/55 mode.");
+	Pstring = secprop->Add_path("jfont24rom", Property::Changeable::OnlyAtStart, "");
+	Pstring->Set_help("Binary font file used to rendering all characters in PS/55 mode.");
 
 #if C_DEBUG
 	LOG_StartUp();
