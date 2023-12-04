@@ -80,15 +80,17 @@ PS/55エミュレーション時の説明は割愛。画面から察して下さ
 
 ```
 [dosbox]セクション
-jfontsbcs=        半角表示用FONTX2フォントファイルへのパス 8x19
-jfontdbcs=        全角表示用FONTX2フォントファイルへのパス 16x16
-jfontsbcs24=      半角表示用FONTX2フォントファイルへのパス 12x24
-                  または、DOS K3.x半角フォントファイル ($SYSHN24.FNT) へのパス 13x30
-jfontsbex24=      DOS K3.x拡張半角文字フォントファイル ($SYSEX24.FNT) へのパス 13x30 (オプション)
-jfontdbcs24=      全角表示用FONTX2フォントファイルへのパス 24x24
+jfontsbcs=        半角表示用FONTX2フォントファイルへのパス 8x19 (AX)
+jfontdbcs=        全角表示用FONTX2フォントファイルへのパス 16x16 (AX)
+jfontsbcs24=      半角表示用FONTX2フォントファイルへのパス 12x24 (PS/55)
+                  または、DOS K3.x半角フォントファイル ($SYSHN24.FNT) へのパス 13x30 (PS/55)
+jfontsbex24=      DOS K3.x拡張半角文字フォントファイル ($SYSEX24.FNT) へのパス 13x30 (PS/55, オプション)
+jfontdbcs24=      全角表示用FONTX2フォントファイルへのパス 24x24 (PS/55)
+jfont24rom=       24x24 フォント ROM バイナリ ファイルへのパス (上記の PS/55 フォント ファイルの代わり)
 machine=ega       AX固有の機能が有効になります。DOSBox起動時はAX英語モードです。
 machine=jega      DOSBox起動時からAX日本語モードで起動します。AX版MS-DOSがなくても日本語を表示できますが、いくつかのアプリケーションは正常に動作しません。DOSの国別情報は米国のままです。
 machine=svga_ps55 PS/55エミュレーションが有効になります。起動時はVGAと同等のSBCSモードです。
+machine=svga_ps55mono  PS/55単色エミュレーションが有効になります。
 machine=に上記以外の値を設定すると素のDOSBoxと同様に振る舞います
 
 [dos]セクション
@@ -97,8 +99,11 @@ keyboardlayout=jp ホストのキーボードが米国英語101キー配列で�
 
 ### 変更履歴
 
+* Build 4481PS11 (2023/12/04)
+  - PS/55単色モニターモードを追加(machine=svga_ps55mono)。
+  - PS/55マシン用のフォント ROM ダンプ ユーティリティ (getfps5.com) とエミュレータ用のローダーを追加。
 * Build 4481PS10 (2023/11/28)
-  - IBM BASIC インタプリタまたは IBM BASIC コンパイラで構築されたグラフィックス アプリケーションを実行するための DOS J4.x/J5.x 用のパッチ プログラム (dcbpatch) を追加します。 DOS I/O ワークスペースの表示設定ブロックのフラグを変更して、DOSVAX でサポートされていない IBM 5550 のグラフィック サポート機能を無効にします。
+  - IBM BASIC インタプリタまたは IBM BASIC コンパイラで構築されたグラフィックス アプリケーションを実行するための DOS J4.0/J5.0 用のパッチ プログラム (dcbpatch) を追加します。 DOS I/O ワークスペースの表示設定ブロックのフラグを変更して、DOSVAX でサポートされていない IBM 5550 のグラフィック サポート機能を無効にします。
   - キーストロークの妨げにならないように、入力方式 (IME) を無効にします。 (sdlmain.c)
 * Build 4481PS09 (2023/01/31)
   - ビルド 4467PS01 以降、JEGA の初期化が呼び出されていない問題を修正

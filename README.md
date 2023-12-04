@@ -55,15 +55,17 @@ RCtrl       英数カナ  RCtrl
 
 ```
 [dosbox] section
-jfontsbcs=     Path to 8x19 FONTX2 SBCS font file
-jfontdbcs=     Path to 16x16 FONTX2 DBCS font file
-jfontsbcs24=   Path to 12x24 FONTX2 SBCS font file
+jfontsbcs=     Path to 8x19 FONTX2 SBCS font file (AX)
+jfontdbcs=     Path to 16x16 FONTX2 DBCS font file (AX)
+jfontsbcs24=   Path to 12x24 FONTX2 SBCS font file (PS/55)
                or Path to 13x30 DOS K3.x SBCS font file ($SYSHN24.FNT)
-jfontsbex24=   Path to 13x30 DOS K3.x Extended SBCS font file ($SYSEX24.FNT) (option)
-jfontdbcs24=   Path to 24x24 FONTX2 DBCS font file
+jfontsbex24=   Path to 13x30 DOS K3.x Extended SBCS font file ($SYSEX24.FNT) (PS/55, option)
+jfontdbcs24=   Path to 24x24 FONTX2 DBCS font file (PS/55)
+jfont24rom=    Path to 24x24 Font ROM binary file (instead of above PS/55 font files)
 machine=ega    Enable AX emulation, and start with the AX English mode.
 machine=jega   Start with AX Japanese mode. It can display Japanese without the AX version of MS-DOS, but some applications do not work correctly.
 machine=svga_ps55  Enable PS/55 emulation. Please read README_PS55.txt.
+machine=svga_ps55mono  Enable PS/55 monochrome emulation.
 machine= for other options, see the original DOSBox documentation.
 
 [dos] section
@@ -72,8 +74,11 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4481PS11 (2023/12/04)
+  - Add the PS/55 Monochrome Monitor mode (machine=svga_ps55mono).
+  - Add Font ROM dump utility (getfps5.com) for PS/55 machines and its loader for the emulator.
 * Build 4481PS10 (2023/11/28)
-  - Add a patch program (dcbpatch) for DOS J4.x/J5.x to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable IBM 5550's Graphics Support Functions that are not supported by DOSVAX.
+  - Add a patch program (dcbpatch.com) for DOS J4.0/J5.0 to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable IBM 5550's Graphics Support Functions that are not supported by DOSVAX.
   - Disable the input method (IME) to avoid disturbing keystrokes. (sdlmain.c)
 * Build 4481PS09 (2023/01/31)
   - Fix an issue that JEGA initialization has not been called since the Build 4467PS01.

@@ -1,7 +1,7 @@
 DOSVAX_PS55
 Dedicated for IBM Enthusiasts.
 
- Copyright (c) 2022 akm
+ Copyright (c) 2023 akm
  This document is under the MIT License.
 
 - MIT License -
@@ -22,6 +22,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
 IN THE SOFTWARE.
+
+- getfps5.com - 
+
+This is a dump program to obtain entire font ROM data of the Display Adapter. It requires 768 KB of free drive space. I've never been tested it on the real machine.
 
 - dcbpatch.com - 
 
