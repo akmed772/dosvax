@@ -51,6 +51,10 @@ extern void write_p3c5(Bitu /*port*/, Bitu val, Bitu iolen);
 
 void PS55_GC_Index_Write(Bitu port, Bitu val, Bitu len);
 
+void EnableGaijiRAMHandler();
+
+void DisableGaijiRAMHandler();
+
 //#define VGA_PAGES		(128/4)
 #define VGA_PAGE_A0		(0xA0000/4096)
 #define VGA_PAGE_B0		(0xB0000/4096)
@@ -66,6 +70,9 @@ public:
 	// Address Bits: ab bbbb bbbb bbbb bbbb (a = bank select, b = addr)
 	Bitu readHandler(PhysPt addr) {
 		if(ps55.data3e3_08 == 0x80)
+			// ----Å´for DA1----
+			//addr |= ((Bitu)ps55.mem_bank << 16);
+			// ----Å´for DA2----
 			addr |= ((Bitu)ps55.mem_bank << 17);
 		else
 		{
@@ -77,12 +84,16 @@ public:
 		//LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, addr %x", ps55.mem_select, ps55.mem_bank, addr);
 		switch (ps55.mem_select & 0xf0) {
 		case 0xb0://Gaiji RAM
-			//LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, addr %x (%x)", ps55.mem_select, ps55.mem_bank, addr / 128, addr);
 			addr &= 0x3FFFF;//safety access
+			//LOG_MSG("PS55_MemHnd_G: Read from mem %x, bank %x, chr %x (%x), val %x", ps55.mem_select, ps55.mem_bank, addr / 128, addr, ps55.gaiji_ram[addr]);
 			return ps55.gaiji_ram[addr];
 			break;
 		case 0x10://Font ROM
-			//LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, addr %x (%x)", ps55.mem_select, ps55.mem_bank, addr / 72, addr);
+			// ----Å´for DA1----
+			//LOG_MSG("PS55_MemHnd_F: Read from mem %x, bank %x, chr %x (%x), val %x", ps55.mem_select, ps55.mem_bank, addr / 72, addr, ps55.font_da1[addr]);
+			//return ps55.font_da1[addr];
+			// ----Å´for DA2----
+			//LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, chr %x (%x), val %x", ps55.mem_select, ps55.mem_bank, addr / 72, addr, ps55font_24[addr]);
 			if (addr > DBCS24_LEN) return 0xff;
 			return ps55font_24[addr];
 			break;
@@ -92,11 +103,11 @@ public:
 		}
 	}
 	void writeHandler(PhysPt addr, Bit8u val) {
-		if (!(ps55.gaijiram_access & 0x10))
-		{
-			LOG_MSG("PS55_MemHnd: Failure to write to mem %x, addr %x, val %x", ps55.mem_select, addr, val);
-			return;//safety
-		}
+		//if (!(ps55.gaijiram_access & 0x10))
+		//{
+		//	LOG_MSG("PS55_MemHnd: Failure to write to mem %x, addr %x, val %x", ps55.mem_select, addr, val);
+		//	return;//safety
+		//}
 		if (ps55.data3e3_08 == 0x80)
 			addr |= ((Bitu)ps55.mem_bank << 17);
 		else
@@ -108,14 +119,17 @@ public:
 		}
 		switch (ps55.mem_select) {
 		case 0xb0://Gaiji RAM
-			//LOG_MSG("PS55_MemHnd: Write to mem %x, addr %x (%x), val %x", ps55.mem_select, addr / 128, addr, val);
+			//LOG_MSG("PS55_MemHnd_G: Write to mem %x, chr %x (%x), val %x", ps55.mem_select, addr / 128, addr, val);
 			addr &= 0x3FFFF;//safety access
 			ps55.gaiji_ram[addr] = val;
 			break;
 		case 0x10://Font ROM
+			//LOG_MSG("PS55_MemHnd: Attempted to write Font ROM!!!");
+			//LOG_MSG("PS55_MemHnd_F: Failure to write to mem %x, addr %x, val %x", ps55.mem_select, addr, val);
 			//Read-Only
 			break;
 		default:
+			LOG_MSG("PS55_MemHnd_F: Default passed!!!");
 			break;
 		}
 	}
@@ -184,10 +198,18 @@ void write_p96(Bitu port, Bitu val, Bitu len) {
 }
 
 Bitu read_p96(Bitu port, Bitu len) {
+#ifdef _DEBUG
 	LOG_MSG("MCA_p96: Read from port %x, len %x", port, len);
+#endif
 	return 0;
 }
 
+void EnableVGA(void) {
+	vga.vmemsize = 256 * 1024;
+	VGA_SetupOther();
+	LOG_MSG("VGA I/O handlers enabled!!");
+	VGA_DetermineMode();
+}
 
 void DisableVGA(void) {
 	IO_FreeWriteHandler(0x3c0, IO_MB);
@@ -236,6 +258,10 @@ void MCA_Card_Reg_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x102://POS Register 2 (Hex 102)
 			if (!(val & 0x01))
 				DisableVGA();//disable VGA original I/O port handler
+			else
+			{
+				EnableVGA();
+			}
 			break;
 		default:
 			break;
@@ -246,8 +272,9 @@ void MCA_Card_Reg_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x102://POS Register 2 (Hex 102)
 			if (val & 0x01)//Bit 0: Card Enable, Bit 1-2: ??? *** Dependent on the card! ***
 				PS55_WakeUp();//enable PS/55 DA
-			//else
-			//	PS55_ShutDown();//disable PS/55 DA
+			else
+				PS55_ShutDown();//disable PS/55 DA
+			;
 			break;
 		default:
 			break;
@@ -266,30 +293,33 @@ void MCA_Card_Reg_Write(Bitu port, Bitu val, Bitu len) {
 /*
 	POS ID	SYS ID	
 	EFFFh	*		Display Adapter
-	EFFEh	*		Display Adapter II (3E0:0A = xx0x xxxx)
-	|-		FFF2h	Display Adapter B2 (3E0:0A = xx1x xxxx)
-	|-		FDFEh	Display Adapter B2 (3E0:0A = xx1x xxxx)
-	 -		*		Display Adapter III,V (3E0:0A = xx1x xxxx)
+	EFFEh	*		Display Adapter II (I/O 3E0:0A = xx0x xxxx)
+	|-		FFF2h	Display Adapter B2 (I/O 3E0:0A = xx1x xxxx)
+	|-		FDFEh	Display Adapter B2 (I/O 3E0:0A = xx1x xxxx)
+	|-		*		Display Adapter III,V (I/O 3E0:0A = xx1x xxxx)
 	ECECh	FF4Fh	Display Adapter B1
-	 -		*		Display Adapter IV
+	|-		*		Display Adapter IV
+	ECCEh	*		Display Adapter IV
 	901Fh	*		Display Adapter A2
 	901Dh	*		Display Adapter A1
 	901Eh	*		Plasma Display Adapter
+	EFD8h	*		Display Adapter/J
 */
 
-//I/O Read POS Regs to return card ID 0xECEC (Display Adapter IV)
+//I/O Read POS Regs to return card ID 0xEFFE (Display Adapter II)
 Bitu MCA_Card_Reg_Read(Bitu port, Bitu len) {
 	Bitu ret = 0xff;
 	if ((mca.cardsetupen) && (mca.cardsel == 0)) {
 		switch (port) {
 		case 0x100://POS Register 0 - Adapter Identification Byte (Low byte)
 			ret = 0xfe;
+			//ret = 0xff;
 			break;
 		case 0x101://POS Register 1 - Adapter Identification Byte (High byte)
 			ret = 0xef;
 			break;
-		case 0x102://POS Register 2
-			ret = (ps55.carden) ? 1 : 0;
+		case 0x102://POS Register 2 - Option Select Data Byte 1
+			ret = (ps55.carden) ? 1 : 0;//Bit 0 : Card Enable
 			break;
 		default:
 			break;
@@ -297,8 +327,8 @@ Bitu MCA_Card_Reg_Read(Bitu port, Bitu len) {
 	}
 	if ((mca.mothersetupen)) {//I/O 94h bit 7 is on
 		switch (port) {
-		case 0x102://System Board POS Register 2 (Hex 102)
-			ret = 0x0f;//0010 1111
+		case 0x102://System Board POS Register 2 - External I/O Configuration
+			ret = 0x2f;//0010 1111
 			break;
 		default:
 			break;
@@ -318,6 +348,36 @@ Bitu PS55_CRTC_Read(Bitu port, Bitu len) {
 	return 0;
 }
 #endif
+void EnableGaijiRAMHandler()
+{
+	//store current pagehandlers
+	for (Bitu j = 0; j < 32; j++)
+	{
+		ps55.pagehndl_backup[j] = MEM_GetPageHandler(GAIJI_RAMBASE + j);
+		MEM_SetPageHandler(GAIJI_RAMBASE + j, 1, &ps55mem_handler);
+		//LOG_MSG("PS55_MemHnd: Setup page handler %X" , GAIJI_RAMBASE + j);
+	}
+	PAGING_ClearTLB();
+	//LOG_MSG("PS55_MemHnd: Setup page handlers");
+}
+void DisableGaijiRAMHandler()
+{
+	//LOG_MSG("PS55_MemHnd: Page handler is restoring.");
+	//restore pagehandlers
+	for (Bitu j = 0; j < 32; j++)
+	{
+		if (MEM_GetPageHandler(GAIJI_RAMBASE + j) == &ps55mem_handler)//validate it's not changed
+		{
+			MEM_SetPageHandler(GAIJI_RAMBASE + j, 1, ps55.pagehndl_backup[j]);
+			//LOG_MSG("PS55_MemHnd: Page handler restored +");
+		}
+		else
+		{
+			LOG_MSG("PS55_MemHnd: Page handler not restored -");
+		}
+	}
+	PAGING_ClearTLB();
+}
 void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 	//if (len == 2) LOG_MSG("PS55: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
 	//else LOG_MSG("PS55: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
@@ -338,44 +398,26 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			//LOG_MSG("PS55_??: 3E1:%X Accessed !!!!!!!!!!!!! (val: %X, %dd)", ps55.idx_3e1, val, val);
 			break;
 		case 0x02:
-			//Bit 4: Graphics / Text mode ? 
+			//Bit 8: ?(this bit is changed many times when filling a shape in BASIC)
+			//Bit 4: Graphics / Text mode ???
 			//Bit 2: Graphics Color / Mono ?
+			//Bit 0: Text / Graphics (Text buffer / APA buffer)
 			//LOG_MSG("PS55_??: 3E1:%X Accessed !!!!!!!!!!!!! (val: %X, %dd)", ps55.idx_3e1, val, val);
-			if (ps55.data3e1_02 ^ val) {
+			//Filter 0000 0X0Xh (05h)
+			if ((ps55.data3e1_02 & 0x05) ^ (val & 0x05)) {
+			//if (ps55.data3e1_02 ^ val) {
 				ps55.data3e1_02 = val;
 				VGA_DetermineMode();
 			}
 			break;
 		case 0x08://bit 4: Gaiji RAM Access Enabled
 			if((ps55.gaijiram_access & 0x10) ^ (val & 0x10)){
-				if (val & 0x10) {
-					//store current pagehandlers
-					for (Bitu j = 0; j < 32; j++)
-					{
-						ps55.pagehndl_backup[j] = MEM_GetPageHandler(GAIJI_RAMBASE + j);
-						MEM_SetPageHandler(GAIJI_RAMBASE + j, 1, &ps55mem_handler);
-						//LOG_MSG("PS55_MemHnd: Setup page handler %X" , GAIJI_RAMBASE + j);
-					}
-					PAGING_ClearTLB();
-					//LOG_MSG("PS55_MemHnd: Setup page handlers");
+				if (val & 0x10) {//remove these lines for DA1
+					EnableGaijiRAMHandler();
 				}
 				else
 				{
-					//LOG_MSG("PS55_MemHnd: Page handler is restoring.");
-					//restore pagehandlers
-					for (Bitu j = 0; j < 32; j++)
-					{
-						if (MEM_GetPageHandler(GAIJI_RAMBASE + j) == &ps55mem_handler)//validate it's not changed
-						{
-							MEM_SetPageHandler(GAIJI_RAMBASE + j, 1, ps55.pagehndl_backup[j]);
-							//LOG_MSG("PS55_MemHnd: Page handler restored +");
-						}
-						else
-						{
-							LOG_MSG("PS55_MemHnd: Page handler not restored -");
-						}
-					}
-					PAGING_ClearTLB();
+					DisableGaijiRAMHandler();
 				}
 			}
 			ps55.gaijiram_access = val;
@@ -384,7 +426,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			//LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e1, val, val);
 			break;
 		}
-		//LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e1, val, val);
+		//LOG_MSG("PS55_3E1(??): Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e1, val, val);
 		break;
 	case 0x3e3://Font Buffer Registers (undoc) : TODO IBM 5550 BASIC uses many unknown regs (Index 20-2Fh)
 		switch (ps55.idx_3e3) {
@@ -404,7 +446,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			//if (val > 0x04) LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 			ps55.mem_bank = val;
 			break;
-		case 0x0b://??? Select memory to locate on the system bus
+		case 0x0b://??? Select memory to be located on the system bus
 			ps55.mem_select = val;
 			//if (!(val == 0xb0 || val == 0x10)) LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 			break;
@@ -414,12 +456,12 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			//LOG_MSG("PS55_FONT: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 			break;
 		}
-		//LOG_MSG("PS55_FONT: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
+		//LOG_MSG("PS55_3E3(FONT): Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 		break;
 	case 0x3e5://CRT Controller Registers (undocumented)
 		if (ps55.idx_3e5 < 0x20) ps55.crtc_reg[ps55.idx_3e5] = val;//save value for 0x1f function
 #ifdef C_HEAVY_DEBUG
-		if (!(ps55.idx_3e5 == 0xe || ps55.idx_3e5 == 0xf)) LOG_MSG("PS55_CRTC: Write to port %x, idx %x, val %02xh (%d), m%d, len %d", port, ps55.idx_3e5, val, val, ps55.crtc_reg[0x19], len);
+		//if (!(ps55.idx_3e5 == 0xe || ps55.idx_3e5 == 0xf)) LOG_MSG("PS55_CRTC: Write to port %x, idx %x, val %02xh (%d), m%d, len %d", port, ps55.idx_3e5, val, val, ps55.crtc_reg[0x19], len);
 #endif
 		switch (ps55.idx_3e5) {
 		//PS/55 actually has 16-bit registers, but in DOSBox, this uses the overflow register to overlap the VGA. Arkward:-<
@@ -556,6 +598,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 	case 0x3ec:
 		switch (ps55.idx_3eb) {
 		case 0x00://Set/Reset
+			//LOG_MSG("PS55_GC Set/Reset (00h) val %02xh (%d)", val, val);
 			ps55.set_reset = val & 0xff;
 			ps55.full_set_reset_low = FillTable[val & 0x0f];
 			ps55.full_enable_and_set_reset_low = ps55.full_set_reset_low & ps55.full_enable_set_reset_low;
@@ -616,6 +659,10 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			break;
 		}
 		break;
+	//case 0x3ee:
+	//	//LOG_MSG("PS55_GC: Write to port %x, val %04xh (%d)", port, val, val);
+	//	LOG_MSG("PS55_GC: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+	//	break;
 	case 0x3e9:
 		//dummy to avoid logmsg duplication
 		break;
@@ -642,7 +689,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 	else {
 		if (len == 2) {
 #ifdef C_HEAVY_DEBUG
-			LOG_MSG("PS55_ATTR: Write val %04xh (%d), previdx %x", val, val, ps55.idx_3e8);
+			//LOG_MSG("PS55_ATTR: Write val %04xh (%d), previdx %x", val, val, ps55.idx_3e8);
 #endif
 			ps55.idx_3e8 = val & 0xff;
 			data = val >> 8;
@@ -651,7 +698,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 		{
 			data = val;
 #ifdef C_HEAVY_DEBUG
-			LOG_MSG("PS55_ATTR: Write val %02xh (%d), idx %x", val, val, ps55.idx_3e8);
+			//LOG_MSG("PS55_ATTR: Write val %02xh (%d), idx %x", val, val, ps55.idx_3e8);
 #endif
 		}
 		ps55.latch_3e8 = false;
@@ -675,7 +722,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x1a://Cursor color
 #ifdef C_HEAVY_DEBUG
 			if ((ps55.cursor_color & 0x0f) ^ (data & 0x0f)) {
-				LOG_MSG("PS55_ATTR: The cursor color has changed to %02xh (%d)", data & 0x0f, data & 0x0f);
+				LOG_MSG("PS55_ATTR: The cursor color has been changed to %02xh (%d)", data & 0x0f, data & 0x0f);
 			}
 #endif
 			ps55.cursor_color = data & 0x0f;
@@ -683,7 +730,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x1b://Cursor blinking speed
 #ifdef C_HEAVY_DEBUG
 			if (ps55.cursor_options ^ data) {
-				LOG_MSG("PS55_ATTR: The cursor option has changed to %02xh (%d)", data, data);
+				LOG_MSG("PS55_ATTR: The cursor option has been changed to %02xh (%d)", data, data);
 			}
 #endif
 			ps55.cursor_options = data;
@@ -781,17 +828,19 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 		//     bit 0 In Operation / -Access
 	case 0x3e1://??? (undocumented)
 		switch (ps55.idx_3e1) {
-		case 02://?
+		case 0x02://?
 			ret = ps55.data3e1_02;
 			break;
 		case 0x03://bit 7: Display supports color/mono, bit 0: busy?
-			ret = 0x80;//1000 0000
+			ret = ps55.data3e1_03;//default 0x80
+			//ret = 0x80;//1000 0000
+			//ret = 0x00;//0000 0000 for TEST
 			break;
 		case 0x08://bit 4: Gaiji RAM Access Enabled
 			ret = ps55.gaijiram_access;
 			break;
-		case 0x0a://flags?
-			ret = 0x07;//Bit2-0=(110 or 111): Display Adapter Memory Expansion Kit is not installed.
+		case 0x0a://flags? Bit2-0 = (110 or 111): Display Adapter Memory Expansion Kit is not installed.
+			ret = 0x07;//To disable 256 color mode that is still not supported.
 			break;
 		case 0x0b://flags?
 			ret = 0x00;
@@ -842,7 +891,7 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 			break;
 		}
 #ifdef C_HEAVY_DEBUG
-		LOG_MSG("PS55_ATTR: Read from port %x, idx %2x, len %x, ret %2x", port, ps55.idx_3e8, len, ret);
+		//LOG_MSG("PS55_ATTR: Read from port %x, idx %2x, len %x, ret %2x", port, ps55.idx_3e8, len, ret);
 #endif
 		//ps55.latch_3e8 = (ps55.latch_3e8) ? false : true;//toggle latch
 		//ps55.latch_3e8 = false;//reset latch
@@ -890,6 +939,46 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 	return ret;
 }
 
+void PS55_DA1_Write(Bitu port, Bitu val, Bitu len) {
+	//EnableGaijiRAMHandler();//for DA1
+	if (len == 2) LOG_MSG("PS55_DA1: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+	else LOG_MSG("!!PS55_DA1: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+	switch (port) {
+	case 0x3ee://?
+		//Switch Font ROM/RAM window addressed at A0000-BFFFFh
+		if ((ps55.data3ee & 0x40) ^ (val & 0x40)) {
+			//ps55.gaijiram_access = true;
+			if (val & 0x40) {//Font ROM
+				ps55.mem_select = 0x10;
+				LOG_MSG("Font ROM selected (DA1)");
+			}
+			else//Font display buffer
+			{
+				ps55.mem_select = 0xb0;
+				//DisableGaijiRAMHandler();
+				LOG_MSG("Font buffer selected (DA1)");
+			}
+		}
+		if (ps55.mem_select == 0xb0) {
+			if (val & 0x80) {
+				ps55.data3e3_08 = 0x80;
+				ps55.mem_bank = 1;
+			}
+			else {
+				ps55.mem_bank = 0;
+			}
+		}
+		ps55.data3ee = val;
+		break;
+	case 0x3ef:
+		ps55.mem_bank = val & 0x0f;
+		break;
+	}
+}
+Bitu PS55_DA1_Read(Bitu port, Bitu len) {
+	LOG_MSG("!!PS55_DA1: Read from port %x, len %x", port, len);
+	return ps55.data3ee;
+}
 void FinishSetMode_PS55(Bitu /*crtc_base*/, VGA_ModeExtraData* modeData) {
 	VGA_SetupHandlers();
 }
@@ -924,28 +1013,38 @@ void DetermineMode_PS55() {
 		//if(1){//for debug
 			if (~ps55.data3e1_02 & 0x04) {
 			//if(1){
+#ifdef C_HEAVY_DEBUG
 				LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 monochrome graphics.");
+#endif
 					VGA_SetMode(M_PS55_GFX_MONO);
 			}
 			else {
+#ifdef C_HEAVY_DEBUG
 				LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 8-color graphics.");
+#endif
 					VGA_SetMode(M_PS55_GFX);
 			}
 		}
 		else {
 			if (ps55.mem_conf & 0x40) {
+#ifdef C_HEAVY_DEBUG
 				LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 Mode 03 text.");
+#endif
 				VGA_SetMode(M_PS55_M3TEXT);
 			}
 			else {
+#ifdef C_HEAVY_DEBUG
 				LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 text.");
+#endif
 				VGA_SetMode(M_PS55_TEXT);
 			}
 		}
 	}
 	else
 	{//replica of VGA_DetermineMode() without S3 dependencies
+#ifdef C_HEAVY_DEBUG
 		LOG_MSG("PS55_DetermineMode: Set videomode to VGA.");
+#endif
 		//Video memory wrapping for the display driver of DOS/V
 		vga.vmemwrap = 256 * 1024;
 		if (vga.attr.mode_control & 1) { // graphics mode
@@ -987,167 +1086,66 @@ void DetermineMode_PS55() {
 /*
 DOS K3.3
 Mode 0 C8 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
+          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 Mode 1 GA 3e1_2 10, 3e3_0 00, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
+          CRTC 0x0c-1f: 00 00 01 00 80 00 04 02
 Mode 3 CE 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
+          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 Mode 4 GD 3e1_2 10, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
+          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 
 DOS J4.0
 Mode 0 C8 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
 Mode 1 GA 3e1_2 10, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
+          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 Mode 3 CE 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
 Mode 4 GD 3e1_2 14, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
+          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 VMX  3 C3 3e1_2 15, 3e3_0 6B, 3e5_1c 00, 3e5_1f 02, 3e8_38 01, 3e8_3f 0C
+
+Mode 1 GA 3e1_2 10, 3e3_0 00
+Mode 1 GA 3e1_2 10, 3e3_0 2B
+          CRTC 0x0c-1f: 00 00 01 00 80 00 04 02
+          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
+
+Mode 4 GD 3e1_2 10, 3e3_0 2B
+Mode 4 GD 3e1_2 14, 3e3_0 2B
+          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
+          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
+
 */
 
-//The PS/55 DA have half-width DBCS fonts placed at font code 400-4A5h (or more).
-//This function generates them from DBCS fonts. 
-//These fonts are used by DOS Bunsho Program.
-void generate_HalfDBCS() {
-	Bitu i = 0;
-	while(tbl_halfdbcs[i][0] != 0)
-	{
-		for (int line = 0; line < 24; line++)
-		{
-			FontPattern dwpat;
-			Bit8u pattern = 0;
-			Bit8u pathalf = 0;
-			Bit8u lineto = 0;
-			Bitu copyto = (Bitu)tbl_halfdbcs[i][0];
-			Bitu copyfrom = (Bitu)tbl_halfdbcs[i][1];
-			dwpat.d = 0;
-			if (tbl_halfdbcs[i][2] & 0x80) {
-				//read SBCS font
-				dwpat.b[2] = ps55font_24[0x98000 + copyfrom * 64 + line * 2 + 4];
-				dwpat.b[1] = ps55font_24[0x98000 + copyfrom * 64 + line * 2 + 5];
-				dwpat.d <<= 1;//shift left to remove space
-			}
-			else {
-				//read DBCS font
-				dwpat.b[2] = ps55font_24[copyfrom * 72 + line * 3];
-				dwpat.b[1] = ps55font_24[copyfrom * 72 + line * 3 + 1];
-				dwpat.b[0] = ps55font_24[copyfrom * 72 + line * 3 + 2];
-			}
-			switch (tbl_halfdbcs[i][2] & 0xf0) {
-			case 0://shrink entire font bitmap
-				lineto = line;
-				//clear left half of font bitmap
-				ps55font_24[copyto * 72 + lineto * 3] = 0;
-				ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0x0f;
-				pattern = dwpat.b[2];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3] = pathalf;
-				pathalf = 0;
-				pattern = dwpat.b[1];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3] |= pathalf >> 4;
-				pathalf = 0;
-				pattern = dwpat.b[0];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3 + 1] |= pathalf;
-				break;
-			case 0x10://copy half of font bitmap
-			case 0x90:
-				lineto = line;
-				//clear left half of font bitmap
-				ps55font_24[copyto * 72 + lineto * 3] = 0;
-				ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0x0f;
-				dwpat.d <<= tbl_halfdbcs[i][2] & 0x0f;
-				ps55font_24[copyto * 72 + lineto * 3] = dwpat.b[2];
-				ps55font_24[copyto * 72 + lineto * 3 + 1] |= dwpat.b[1] & 0xf0;
-				break;
-			case 0x20://1/4 DBCS font copy to left
-				//set y baseline
-				lineto = (line / 2 + (tbl_halfdbcs[i][2] & 0x0f));
-				if (!(line & 0x01)) {
-					//clear left half of font bitmap
-					ps55font_24[copyto * 72 + lineto * 3] = 0;
-					ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0x0f;
-				}
-				//shrink entire font bitmap
-				pattern = dwpat.b[2];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3] |= pathalf;
-				pathalf = 0;
-				pattern = dwpat.b[1];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3] |= pathalf >> 4;
-				pathalf = 0;
-				pattern = dwpat.b[0];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3 + 1] |= pathalf;
-				break;
-			case 0x30://1/4 DBCS font copy to right
-				lineto = line / 2;
-				if (!(line & 0x01)) {
-					//clear right half of font bitmap
-					ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0xf0;
-					ps55font_24[copyto * 72 + lineto * 3 + 2] = 0x0;
-				}
-				//shrink entire font bitmap
-				pattern = dwpat.b[2];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3 + 1] |= pathalf >> 4;
-				pathalf = 0;
-				pattern = dwpat.b[1];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3 + 2] |= pathalf;
-				pathalf = 0;
-				pattern = dwpat.b[0];
-				for (int i = 0; i < 4; i++) {
-					pathalf |= (pattern << i) & (0x80 >> i);
-				}
-				ps55font_24[copyto * 72 + lineto * 3 + 2] |= pathalf >> 4;
-				break;
-			case 0xa0://1/4 SBCS font copy to left
-				//set y baseline
-				lineto = (line / 2 + (tbl_halfdbcs[i][2] & 0x0f));
-				if (!(line & 0x01)) {
-					//clear right half of font bitmap
-					ps55font_24[copyto * 72 + lineto * 3] = 0;
-					ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0x0f;
-				}
-				//copy left half of bitmap
-				ps55font_24[copyto * 72 + lineto * 3] |= dwpat.b[2];
-				ps55font_24[copyto * 72 + lineto * 3 + 1] |= dwpat.b[1] & 0xf0;
-				break;
-			case 0xb0://1/4 SBCS font copy to right
-				//set y baseline
-				lineto = (line / 2 + (tbl_halfdbcs[i][2] & 0x0f));
-				if (!(line & 0x01)) {
-					//clear right half of font bitmap
-					ps55font_24[copyto * 72 + lineto * 3 + 1] &= 0xf0;
-					ps55font_24[copyto * 72 + lineto * 3 + 2] = 0;
-				}
-				//copy left half of bitmap
-				ps55font_24[copyto * 72 + lineto * 3 + 1] |= dwpat.b[2] >> 4;
-				ps55font_24[copyto * 72 + lineto * 3 + 2] |= dwpat.b[2] << 4;
-				ps55font_24[copyto * 72 + lineto * 3 + 2] |= dwpat.b[1] >> 4;
-				break;
-			}
-		}
-		i++;
-	}
-}
-
-void SetClock_PS55(Bitu which, Bitu target) {
-	VGA_StartResize();
-}
+//[Font ROM Map (DA1)]
+//Bank 0
+// 0000-581Fh Pointers (Low) for each character font?
+// 5820-7FFFh Pointers (High) for each character font?
+// 8000- *  h Font
+//
+//void generate_DA1Font()
+//{
+//	//int membank = 1;
+//	int baseaddr = 0x8000;
+//	for (int chr = 0x100; chr < DBCS24_CHARS; chr++) {
+//		for (int line = 0; line < 72; line++)
+//		{
+//			ps55.font_da1[baseaddr + line] = ps55font_24[chr * 72 + line];
+//		}
+//		//Store memory pointers for each characters
+//		ps55.font_da1[(chr - 0x100) * 2 + 1] = baseaddr & 0xff;
+//		ps55.font_da1[(chr - 0x100) * 2] = (baseaddr >> 8) & 0xff;
+//		ps55.font_da1[0x5820 + (chr - 0x100) / 2] = (baseaddr >> 16) & 0xff;
+//		//if above 0xffff, switch the bank (910 characters per one bank)
+//		baseaddr += 72;
+//		//if (baseaddr > 0xffff) {
+//		//	baseaddr &= 0xf0000;
+//		//	baseaddr += 0x10000;
+//		//	//membank++;
+//		//}
+//	}
+//}
+//void SetClock_PS55(Bitu which, Bitu target) {
+//	VGA_StartResize();
+//}
 
 Bitu GetClock_PS55() {
 	if (ps55.carden)
@@ -1169,38 +1167,25 @@ bool AcceptsMode_PS55(Bitu mode) {
 		return false;
 }
 
+void PS55_ShutDown(void) {
+	ps55.carden = false;
+	for (int port = 0x3e0; port < 0x3ef; port++)
+	{
+		IO_FreeWriteHandler(port, IO_MB | IO_MW);
+		IO_FreeReadHandler(port, IO_MB | IO_MW);
+	}
+	vga.crtc.overflow = ps55.vga_crtc_overflow;
+	vga.config.line_compare = ps55.vga_config_line_compare;
+
+}
 void PS55_WakeUp(void) {
 	ps55.carden = true;
-	//DisableVGA();
 	//Clear CRTC registers that are ignored(CRTC index 7, 8?, 18)
+	ps55.vga_crtc_overflow = vga.crtc.overflow;
+	ps55.vga_config_line_compare = vga.config.line_compare;
 	vga.crtc.overflow = 0;
 	vga.config.line_compare = 0xFFF;
 	MEM_ResetPageHandler(VGA_PAGE_A0, 32);//release VGA handlers
-	//Never used, but they are reserved according to the reference
-	//IO_RegisterWriteHandler(0x3d0, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d0, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d1, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d1, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d2, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d2, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d3, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d3, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d4, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d4, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d5, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d5, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d6, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d6, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d7, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d7, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d8, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d8, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3d9, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3d9, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3da, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3da, &PS55_CRTC_Read, IO_MB | IO_MW);
-	//IO_RegisterWriteHandler(0x3db, &PS55_CRTC_Write, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x3db, &PS55_CRTC_Read, IO_MB | IO_MW);
 
 	IO_RegisterWriteHandler(0x3e0, &PS55_GC_Index_Write, IO_MB | IO_MW);
 	IO_RegisterReadHandler(0x3e0, &PS55_GC_Read, IO_MB | IO_MW);
@@ -1235,10 +1220,16 @@ void PS55_WakeUp(void) {
 	IO_RegisterReadHandler(0x3ec, &PS55_GC_Read, IO_MB | IO_MW);
 	IO_RegisterWriteHandler(0x3ed, &PS55_GC_Data_Write, IO_MB | IO_MW);
 	IO_RegisterReadHandler(0x3ed, &PS55_GC_Read, IO_MB | IO_MW);
-	IO_RegisterWriteHandler(0x3ee, &PS55_GC_Index_Write, IO_MB | IO_MW);//Attribute?
-	IO_RegisterReadHandler(0x3ee, &PS55_GC_Read, IO_MB | IO_MW);
-	IO_RegisterWriteHandler(0x3ef, &PS55_GC_Data_Write, IO_MB | IO_MW);
-	IO_RegisterReadHandler(0x3ef, &PS55_GC_Read, IO_MB | IO_MW);
+#ifdef C_HEAVY_DEBUG
+	//IO_RegisterWriteHandler(0x3ee, &PS55_GC_Data_Write, IO_MB | IO_MW);//Attribute?
+	IO_RegisterWriteHandler(0x3ee, &PS55_DA1_Write, IO_MB | IO_MW);//Attribute?
+	//IO_RegisterReadHandler(0x3ee, &PS55_GC_Read, IO_MB | IO_MW);
+	IO_RegisterReadHandler(0x3ee, &PS55_DA1_Read, IO_MB | IO_MW);
+	//IO_RegisterWriteHandler(0x3ef, &PS55_GC_Data_Write, IO_MB | IO_MW);
+	IO_RegisterWriteHandler(0x3ef, &PS55_DA1_Write, IO_MB | IO_MW);
+	//IO_RegisterReadHandler(0x3ef, &PS55_GC_Read, IO_MB | IO_MW);
+	IO_RegisterReadHandler(0x3ef, &PS55_CRTC_Read, IO_MB | IO_MW);//FOR DEBUG
+#endif
 	//IO_RegisterWriteHandler(0x3ef, write_p3c0, IO_MB); // for PS/55
 	//IO_RegisterReadHandler(0x3ef, read_p3c0, IO_MB); // for PS/55
 	//IO_RegisterReadHandler(0x3ee, read_p3c1, IO_MB); // for PS/55
@@ -1251,8 +1242,12 @@ void PS55_WakeUp(void) {
 void SVGA_Setup_PS55(void) {
 	ps55.prevdata = NOAHDATA;
 	ps55.nextret = NOAHDATA;
-	generate_HalfDBCS();
 	ps55.gaiji_ram = new Bit8u[256 * 1024];//256 KB for Gaiji RAM
+	//ps55.font_da1 = new Bit8u[1536 * 1024];//1024 KB for Display Adapter (I) Font ROM
+	//memset(ps55.font_da1, 0x00, 1536 * 1024);
+	//generate_DA1Font();
+	ps55.mem_select = 0xb0;
+	if (ps55.palette_mono) ps55.data3e1_03 &= 0x7f;
 
 	IO_RegisterWriteHandler(0x94, &write_p94, IO_MB);
 	IO_RegisterReadHandler(0x94, &read_p94, IO_MB);

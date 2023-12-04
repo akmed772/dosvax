@@ -451,7 +451,12 @@ public:
 		writeData(start, val);
 	}
 	void writeHandlerW(PhysPt start, Bit16u val) {
+		//if (ps55.data_rotate) LOG_MSG("Rotate1: %X >> %X", val, ps55.data_rotate);
 		val = ((val >> ps55.data_rotate) | (val << (16 - ps55.data_rotate)));
+		//if (ps55.data_rotate) LOG_MSG("Rotate2: %X", val);
+		//if (val)LOG_MSG("GRPH Write: %X at %X (EA:%X, NE:%X)", val, start, 
+		//	ps55.full_enable_and_set_reset_low, 
+		//	ps55.full_not_enable_set_reset_low);
 		vga.config.full_not_enable_set_reset = ps55.full_not_enable_set_reset_low;
 		vga.config.full_enable_and_set_reset = ps55.full_enable_and_set_reset_low;
 		vga.config.full_bit_mask = ps55.full_bit_mask_low;

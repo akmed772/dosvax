@@ -546,7 +546,7 @@ skip_cursor:
 // Some applications set the bit 1 as the column is right half of DBCS,
 // but it does not make any mean. (according to the IBM Technical Reference.)
 // 
-//[Font ROM Map]
+//[Font ROM Map (DA2)]
 //Bank 0
 // 4800-  *
 //Bank 4
@@ -558,15 +558,21 @@ skip_cursor:
 //14000-146FFh (B4000-B46FFh) : Half-width box drawing characters (7 lines * 4 parts * 64 bytes) used by DOS Bunsho
 //             (B9580-?;IBMJ 2930-295e?) : Full-width box drawing characters
 //
-//[Gaiji RAM Map]
+//[Gaiji RAM Map (DA1)]
+// 00000-2FFFFh: Font (0-5FFh) 1536 chs, 128 bytes / ch
+// 30000-37FFFh: Extended SBCS(00-FFh, ATTR bit 1 = on)
+// 38000-3FFFFh: Basic SBCS(00-FFh, ATTR bit 1 = off) 256 chs, 128 bytes / ch
+// 
+//[Gaiji RAM Map (DA2)]
 // Bank 0 00000-1FFFFh placed between A0000h-BFFFFh
-// 00000-1F7FFh(A0000-BF7FFh): ??? (USRFNT utility places temporary data at A0000-7Fh)
-// 1F800-1FFFFh(BF800-BFFFFh): Gaiji(SJIS: F040-F04Fh, IBM: 2384-2393h)
+// 00000-1F7FFh(A0000-BF7FFh): ??? (USRFNT utility places working data at A0000-7Fh) 129,024 bytes = 126 kb
+//                             256 + 1536 chs (72 bytes / char)
+// 1F800-1FFFFh(BF800-BFFFFh): Gaiji(SJIS: F040-F04Fh, IBM: 2384-2393h) 16 chs
 // 
 // Bank 1 20000-3FFFFh placed between A0000h-BFFFFh
-// 20000-33FFFh(A0000-B3FFFh): Gaiji(SJIS: F050-F39Ch, IBM: 2394-2613h)
+// 20000-33FFFh(A0000-B3FFFh): Gaiji(SJIS: F050-F39Ch, IBM: 2394-2613h) 640 chs
 // 34000-37FFFh(B4000-B7FFFh): Basic SBCS(00-FFh, ATTR bit 1 = off)
-// 38000-3AFFFh(B8000-BAFFFh): Gaiji(SJIS: F39D-F3FCh, IBM: 2614-2673h)
+// 38000-3AFFFh(B8000-BAFFFh): Gaiji(SJIS: F39D-F3FCh, IBM: 2614-2673h) 96 chs
 // 3C000-3FFFFh(BC000-BFFFFh): Extended SBCS(00-FFh, ATTR bit 1 = on)
 //
 //[IBM to Gaiji conv tbl]
@@ -583,6 +589,20 @@ skip_cursor:
 Bitu getfont_ps55dbcs(Bitu code, Bitu line) {
 	Bitu font = 0;
 	Bits fline = line - 2;//Start line of drawing character (line >= 1 AND line < 24 + 1 )
+	// ----«for DA1 ----
+	//if (code < 1536) {
+	//	code *= 0x80;
+	//	font = ps55.gaiji_ram[code + line * 4];
+	//	font <<= 8;
+	//	font |= ps55.gaiji_ram[code + line * 4 + 1];
+	//	font <<= 8;
+	//	font |= ps55.gaiji_ram[code + line * 4 + 2];
+	//	font <<= 8;
+	//	font |= ps55.gaiji_ram[code + line * 4 + 3];
+	//}
+
+	//return font;
+	// ----«for DA2----
 	if (code >= 0x8000 && code <= 0x8183) code -= 0x6000;//shifts code for IBM extended characters (I don't know how the real card works.)
 	if (code < DBCS24_CHARS && fline >= 0 && fline < 24) {
 		font = ps55font_24[code * 72 + fline * 3];				//1111 1111
@@ -719,6 +739,15 @@ static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 				// the char code is SBCS (ANK)
 				// Get the font pattern
 				Bitu fontbase;
+				// ----«for DA1----
+				//if (attr & 0x02)//second map of SBCS font
+				//	fontbase = 0x30000;
+				//else
+				//	fontbase = 0x38000;
+				//Bit16u font = ps55.gaiji_ram[fontbase + chr * 128 + line * 4];// w13xh29 font
+				//font <<= 8;
+				//font |= ps55.gaiji_ram[fontbase + chr * 128 + line * 4 + 1];// w13xh29 font
+				// ----«for DA2----
 				if (attr & 0x02)//second map of SBCS font
 					fontbase = 0x3c000;
 				else
@@ -726,6 +755,7 @@ static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 				Bit16u font = ps55.gaiji_ram[fontbase + chr * 0x40 + line * 2];// w13xh29 font
 				font <<= 8;
 				font |= ps55.gaiji_ram[fontbase + chr * 0x40 + line * 2 + 1];// w13xh29 font
+				// -----------------
 				// Draw 13 dots
 				for (Bitu n = 0; n < 13; n++) {
 					*draw++ = (font & 0x8000) ? foreground : background;
