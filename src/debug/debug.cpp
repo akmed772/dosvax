@@ -49,6 +49,8 @@ using namespace std;
 #include "../cpu/lazyflags.h"
 #include "keyboard.h"
 #include "setup.h"
+//DOSVAX for PS/55
+#include "ps55.h"
 
 #ifdef WIN32
 void WIN32_Console();
@@ -1044,6 +1046,42 @@ bool ParseCommand(char* str) {
 		SaveMemoryBin(seg,ofs,num);
 		return true;
 	};
+
+	//DOSVAX for PS/55
+
+	if (command == "GAIJIDUMP") { // Dump the Gaiji RAM to file binary
+		FILE* f = fopen("GAIJIDUMP.BIN", "wb");
+		if (!f) {
+			DEBUG_ShowMsg("DEBUG: Gaiji memory binary dump failed.\n");
+			return false;
+		}
+
+		for (Bitu x = 0; x < 256 * 1024; x++) {
+			Bit8u val;
+			val = ps55.gaiji_ram[x];
+			fwrite(&val, 1, 1, f);
+		}
+		fclose(f);
+		DEBUG_ShowMsg("DEBUG: PS/55 Gaiji memory dump success.\n");
+		return true;
+	};
+	//if (command == "DA1DUMP") { // Dump the Font ROM to file binary
+	//	FILE* f = fopen("DA1FONTDUMP.BIN", "wb");
+	//	if (!f) {
+	//		DEBUG_ShowMsg("DEBUG: DA1 font ROM binary dump failed.\n");
+	//		return false;
+	//	}
+
+	//	for (Bitu x = 0; x < 1536 * 1024; x++) {
+	//		Bit8u val;
+	//		val = ps55.font_da1[x];
+	//		fwrite(&val, 1, 1, f);
+	//	}
+
+	//	fclose(f);
+	//	DEBUG_ShowMsg("DEBUG: PS/55 DA1 font ROM dump success.\n");
+	//	return true;
+	//};
 
 	if (command == "IV") { // Insert variable
 		Bit16u seg = (Bit16u)GetHexValue(found,found); found++;
