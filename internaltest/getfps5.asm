@@ -82,6 +82,11 @@ enableda_search:
 	jz	enableda_daFound
 	cmp	cx, 0xECEC;Display Adapter IV, B1
 	jz	enableda_daFound
+	cmp	cx, 0xEFD8;Display Adapter/J
+	jz	enableda_daFound
+	and	cx, 0xFFE0
+	cmp	cx, 0x9000;0x9000-0x901F Display Adapter A1, A2, Plasma
+	jz	enableda_daFound
 	inc	bh
 	cmp	bh, 0x0f
 	jg	enableda_daNotFound
