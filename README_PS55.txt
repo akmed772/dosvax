@@ -26,10 +26,11 @@ IN THE SOFTWARE.
 - getfps5.com - 
 
 This is a dump program to obtain entire font ROM data of the Display Adapter. It requires 768 KB of free drive space. I've never been tested it on the real machine.
+To use the font ROM file, set the line "jfont24rom=" in the [dosbox] section.
 
 - dcbpatch.com - 
 
-This is a patch program for DOS J4.0 / J5.0 to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable the Graphics Support Function (It seems an accelerated graphics processor that was originally implemented by an add-on card for IBM 5550) that are not supported by DOSVAX.
+This is a patch program for DOS J4.0 / J5.0 to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable the Graphics Support Function (It seems an accelerated graphics processor that was originally implemented by an add-on card for IBM 5550) that are not supported by DOSVAX. In DOS K3.x, the color graphics mode doesn't work in emulation.
 How to use:
 	Put into the diskimage, and run "dcbpatch" in DOS command line. You can add the command in AUTOEXEC.BAT.
 	Running "dcbpatch f" will run it as a background program, and it patches the DCB every time the display mode has been changed (DOS Function Int 10h, AH=00h). Usually, you don't have to do it unless you run DOSVAX with the PS/55 monochrome display mode (still not supported).
@@ -70,7 +71,7 @@ Q. Some DBCS characters are displayed as a square symbol during the text is scro
 A. Yes. It's expected.
 
 Q. I created font files from DOS/V. How do I remove space between line-drawing characters?
-A. You can't. The 24-pixel SBCS font of DOS/V have 12 x 24 pixel font while PS/55 renders characters in a box of 13 x 29 pixels. However, if you have DOS K3.x, use $SYSHN24.FNT instead of JPNHN24X.FNT to fix it.
+A. You can't. The 24-pixel SBCS font of DOS/V have 12 x 24 pixel font while PS/55 renders characters in a box of 13 x 29 pixels. However, if you have DOS K3.x, use $SYSHN24.FNT in the DOS disk instead of JPNHN24X.FNT to fix it.
 
 Q. The emulator shuts down when booting DOS K3.x.
 A. You need disable $BANK386.SYS in CONFIG.SYS.
@@ -82,16 +83,16 @@ Q. The install program of DOS J4.0 exits with an error.
 A. Create a hard disk image with bximage (included in Bochs), and mount it before BOOT.
 
 Q. It seems the EMM386 device driver prevents DOS from booting. Is this necessary for Japanese DOS or DOS/V to work? 
-A. No. EMM386 (EMS memory) is used by the Japanese input method (IBMMKK).
+A. No. EMM386 (EMS memory) is used by the optional Japanese input method (IBMMKK).
 
 Q. The DOSBox emulation hangs up or shuts down when an application is running.
 A. Japanese DOS has many extra functions that are not supported by the English version of DOS and DOSBox. Try booting the Japanese DOS and run it. However, a few softwares use a graphics mode that is not supported by DOSVAX.
 
 Q. What's the Japanese DOS? Is it different from Japanese DOS/V?
-A. In this document, the Japanese DOS refers to IBM DOS K3.x, J.4.0x and J5.0x. The display driver of Japanese DOS is designed for IBM proprietary video card called the Display Adapter while DOS/V is designed to run on the generic VGA. Not only the video memory address, the Japanese DOS is very different from DOS/V, and most applications developed for Japanese DOS will not work on DOS/V. The opposite is the same too.
+A. In this document, the Japanese DOS refers to IBM DOS K3.x, J.4.0x and J5.0x. The display driver of Japanese DOS is designed for IBM's proprietary video card called the Display Adapter while DOS/V is designed to run on the generic VGA. Not only the video memory address, the Japanese DOS is very different from DOS/V. Most applications developed for Japanese DOS will not work on DOS/V. The opposite is the same too.
 
 Q. I have DOS K3.x or Jx.x for PS/55, but it cannot run on the emulator.
-A. There are some variants of the Display Adapter, but all adapters doesn't have the BIOS. Instead of the hardware coding, the Japanese IBM DOS provides BIOS functions, and absorbs differences in individual hardwares. This means there are various versions of Japanese DOS, and some of them won't run on the emulator. DOSVAX emulates the PS/55 Model 5550-S, T and V. Please check the system requirements of your operating system and software, and it must support above hardwares.
+A. There are some variations of the Display Adapter, but all adapters doesn't have the BIOS. Instead of the hardware coding, the Japanese IBM DOS provides video BIOS functions, and absorbs differences in individual hardwares. This means there are various versions of Japanese DOS for PS/55, and some of them won't run on the emulator. DOSVAX emulates the PS/55 Model 5550-S, T and V. Please check the system requirements of your operating system and software, and it must support above hardwares.
 
 Q. Does this have compatibility with the Multistation 5550 (known as IBM 5550 outside Japan)?
 A. I've never use the Multistation 5550, but I guess PS/55 Japanese DOS is designed to run 5550 applications. Low-level softwares such as operating systems may not run.
@@ -100,13 +101,10 @@ Q. Can this emulator run Windows 3.x?
 A. No. Windows uses a graphics mode, but the emulator doesn't support it
 
 Q. Can this emulator run OS/2 J1.x?
-A. I don't know.
+A. I don't have it, so I don't know.
 
 Q. Can this emulator run this software?
 A. I don't know. Try it!
-
-Q. Can you fix this bug?
-A. Sorry, I don't want to continue development. Too lazy.
 
 Q. Where can I find the reference diskette?
 Q. I don't have the DOS, so please upload its disk image.
