@@ -74,6 +74,19 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4483PS12 (2023/12/15)
+  - Fix following issues to improve emulation in AX mode
+    - EGA registers were not readable. Original EGA's registers are not readable, but Super EGA's are readable.
+    - The bit 6 of RMOD2 (Select Blink or Intensity) register didn't work.
+    - Scancodes of some JP specific keys were changed by the keyboard controller when the Keyboard BIOS was in the US mode. The entire operation should be done by the Keyboard BIOS.
+    - Set FFh at C8000-DFFFFh to use it as either EMS memory or UMB.
+    - Added a resolution to support a mouse correctly when the video mode is 52h or 53h (JEGA graphics mode).
+  - Following changes to improve emulation in PS/55 mode
+    - Set the segment address of Extended BIOS Data Area at the highest memory under 640k, and adjust size of DOSBox MCB.
+    - Set the BIOS signature to run the BASIC interpreter of DOS J5.0x/V.
+    - Add a key bind for NumLock.(But the real IBM 5576-00* keyboards bind NumLock to Shift + ScrollLock.)
+    - Change video mode determination for color graphics mode in DOS K3.x.
+  - Merge changes from DOSBox SVR r4481 to r4483.
 * Build 4481PS11 (2023/12/04)
   - Add the PS/55 Monochrome Monitor mode (machine=svga_ps55mono).
   - Add Font ROM dump utility (getfps5.com) for PS/55 machines and its loader for the emulator.

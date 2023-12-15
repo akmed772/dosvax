@@ -33,7 +33,7 @@ To use the font ROM file, set the line "jfont24rom=" in the [dosbox] section.
 This is a patch program for DOS J4.0 / J5.0 to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable the Graphics Support Function (It seems an accelerated graphics processor that was originally implemented by an add-on card for IBM 5550) that are not supported by DOSVAX. In DOS K3.x, the color graphics mode doesn't work in emulation.
 How to use:
 	Put into the diskimage, and run "dcbpatch" in DOS command line. You can add the command in AUTOEXEC.BAT.
-	Running "dcbpatch f" will run it as a background program, and it patches the DCB every time the display mode has been changed (DOS Function Int 10h, AH=00h). Usually, you don't have to do it unless you run DOSVAX with the PS/55 monochrome display mode (still not supported).
+	Running "dcbpatch f" will run it as a background program, and it patches the DCB every time the display mode has been changed (DOS Function Int 10h, AH=00h). Usually, you don't have to do it unless you run DOSVAX with the PS/55 monochrome monitor mode.
 
 - Infrequency Questions -
 
