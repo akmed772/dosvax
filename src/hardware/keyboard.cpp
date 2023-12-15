@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
- *  Copyright (C) 2016-2022 akm
+ *  Copyright (C) 2016-2023 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -361,6 +361,7 @@ void KEYBOARD_AddKey(KBD_KEYS keytype, bool pressed) {
 
 		case KBD_kpcomma:ret = 0x66; break;//NumLk -> ,
 		case KBD_scrolllock:ret = 0x75; break;//ScrLk -> NumLk/ScrLk
+		case KBD_numlock:ret = 0; break;
 
 		case KBD_kp7:ret = 0x5d; break;
 		case KBD_kp8:ret = 0x5e; break;
@@ -812,22 +813,22 @@ void KEYBOARD_AddKey(KBD_KEYS keytype, bool pressed) {
 			//case KBD_yen:ret = 0x7d; break;//for JP layout
 		case KBD_backslash:ret = 86; break;//for AX/JP layout
 		case KBD_yen:ret = 43; break;//for AX/JP layout
-		case KBD_conv:ret = (INT16_AX_GetKBDBIOSMode() == 0x51) ? 0x5b : 57; break;//for AX/JP layout
-		case KBD_nconv:ret = (INT16_AX_GetKBDBIOSMode() == 0x51) ? 0x5a : 57; break;//for AX/JP layout
-		case KBD_ax:ret = (INT16_AX_GetKBDBIOSMode() == 0x51) ? 0x5c : 0; break;//for AX layout
+		case KBD_conv:ret = 0x5b; break;//for AX/JP layout
+		case KBD_nconv:ret = 0x5a; break;//for AX/JP layout
+		case KBD_ax:ret = 0x5c; break;//for AX layout
 			/* System Scan Code for AX keys
-			JP mode  Make    Break    US mode  Make    Break
-			–³•ÏŠ·   5Ah     DAh      Space    39h(57) B9h
-			•ÏŠ·     5Bh     DBh      Space    39h(57) B9h
-			Š¿Žš     E0h-38h E0h-B8h  RAlt     (status flag)
-			AX       5Ch     DCh      (unused)
+			JP mode  Make    Break
+			–³•ÏŠ·   5Ah     DAh
+			•ÏŠ·     5Bh     DBh
+			Š¿Žš     E0h-38h E0h-B8h
+			AX       5Ch     DCh
 			*/
-			/* Character code in JP mode (implemented in KBD BIOS)
-			Key         Ch Sh Ct Al
-			5A –³•ÏŠ· - AB AC AD AE
-			5B •ÏŠ·   - A7 A8 A9 AA
-			38 Š¿Žš   - 3A 3A
-			5c AX     - D2 D3 D4 D5
+			/* Character code in JP mode (used by BIOS)
+			Key         Ch Sh Ct Al   US mode
+			5A –³•ÏŠ· - AB AC AD AE   Space
+			5B •ÏŠ·   - A7 A8 A9 AA   Space
+			38 Š¿Žš   - 3A 3A         RAlt
+			5c AX     - D2 D3 D4 D5   (unused)
 			*/
 		case KBD_hankaku:ret = 127; break;//scancode set 01 for PS/55
 		case KBD_kana: ret = 57; break;//scancode set 01 for PS/55

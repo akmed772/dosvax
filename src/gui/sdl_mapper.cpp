@@ -1953,6 +1953,8 @@ static void CreateLayout(void) {
 		AddKeyButtonEvent(PX(XO + 0), PY(YO), BW, BH, "PRT", "printscreen", KBD_printscreen);
 		AddKeyButtonEvent(PX(XO + 1), PY(YO), BW, BH, "SCL", "scrolllock", KBD_scrolllock);
 		AddKeyButtonEvent(PX(XO + 2), PY(YO), BW, BH, "PAU", "pause", KBD_pause);
+		//The real IBM 5576-00* keyboards bind NumLock to Shift + ScrollLock
+		num_lock_event = AddKeyButtonEvent(PX(XO + 3), PY(YO), BW, BH, "NUM", "numlock", KBD_numlock);
 		AddKeyButtonEvent(PX(XO + 0), PY(YO + 1), BW, BH, "INS", "insert", KBD_insert);
 		AddKeyButtonEvent(PX(XO + 1), PY(YO + 1), BW, BH, "HOM", "home", KBD_home);
 		AddKeyButtonEvent(PX(XO + 2), PY(YO + 1), BW, BH, "PUP", "pageup", KBD_pageup);

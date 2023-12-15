@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
- *  Copyright (C) 2016 akm
+ *  Copyright (C) 2016-2023 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -276,6 +276,23 @@ static Bitu IRQ1_Handler(void) {
 	if (DOS_LayoutKey(scancode,flags1,flags2,flags3)) return CBRET_NONE;
 	//  Printout scancode status for debug
 	//  	LOG_MSG("key input %x %x %x %x",scancode,flags1,flags2,flags3);
+	if (INT16_AX_GetKBDBIOSMode() == 0x01) {// for AX: If KBDBIOS is in US mode, convert scancode of some JP keys
+		Bitu newscancode = scancode & 0x7f;
+		scancode &= 0x80;
+		switch (newscancode) {
+		case 0x5b://CONV
+			newscancode = 0x39;//Space
+			break;
+		case 0x5a://NCONV
+			newscancode = 0x39;//Space
+			break;
+		case 0x5c://AX
+			return CBRET_NONE;
+		default:
+			break;
+		}
+		scancode |= newscancode;
+	}
 	switch (scancode) {
 		/* First the hard ones  */
 	case 0xfa:	/* Acknowledge */
@@ -635,12 +652,12 @@ static Bitu INT16_Handler(void) {
 		if (!IS_AX_ARCH) break;
 		switch (reg_al) {
 			case 0x00:
-				LOG(LOG_BIOS, LOG_NORMAL)("AX KBD BIOS 5000h is called.");
+				//LOG(LOG_BIOS, LOG_NORMAL)("AX KBD BIOS 5000h is called.");
 				if (INT16_AX_SetKBDBIOSMode(reg_bx)) reg_al = 0x00;
 				else reg_al = 0x01;
 				break;
 			case 0x01:
-				LOG(LOG_BIOS,LOG_NORMAL)("AX KBD BIOS 5001h is called.");
+				//LOG(LOG_BIOS,LOG_NORMAL)("AX KBD BIOS 5001h is called.");
 				reg_bx = INT16_AX_GetKBDBIOSMode();
 				reg_al = 0;
 				break;
@@ -653,7 +670,7 @@ static Bitu INT16_Handler(void) {
 	case 0x51:// Get the shift status
 		if (!IS_AX_ARCH) break;
 		if (INT16_AX_GetKBDBIOSMode() != 0x51) break;//exit if not in JP mode
-		LOG(LOG_BIOS,LOG_NORMAL)("AX KBD BIOS 51xxh is called.");
+		//LOG(LOG_BIOS,LOG_NORMAL)("AX KBD BIOS 51xxh is called.");
 /*
 bit AL 
 Same with INT 16h/AH=12h
