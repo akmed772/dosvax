@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
- *  Copyright (C) 2019-2021 akm
+ *  Copyright (C) 2019-2023 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -1245,13 +1245,19 @@ public:
 
 		if (machine == MCH_TANDY) phys_writeb(0xffffe, 0xff);	/* Tandy model */
 		else if (machine == MCH_PCJR) phys_writeb(0xffffe, 0xfd);	/* PCJr model */
-		else if (IS_PS55_ARCH) phys_writeb(0xffffe, 0xf8); //fpr PS/55 (F8h = PS/2 and PS/55) requested by $BANK386.SYS
+		else if (IS_PS55_ARCH) phys_writeb(0xffffe, 0xf8); //for PS/55 (F8h = PS/2 and PS/55) requested by $BANK386.SYS
 		else phys_writeb(0xffffe,0xfc);	/* PC */
 
 		// System BIOS identification
 		const char* const b_type =
 			"IBM COMPATIBLE 486 BIOS COPYRIGHT The DOSBox Team.";
 		for(Bitu i = 0; i < strlen(b_type); i++) phys_writeb(0xfe00e + i,b_type[i]);
+
+		// Signature for PS/55 DOS/V BASIC interpreter
+		if (IS_PS55_ARCH){
+			const char* const b_ibmsig = "COPR. IBM 1981, ";
+			for (Bitu i = 0; i < strlen(b_ibmsig); i++) phys_writeb(0xfe008 + i, b_ibmsig[i]);
+		}
 		
 		// System BIOS version
 		const char* const b_vers =
@@ -1438,7 +1444,7 @@ public:
 		config |= 0x1000;
 		BIOS_SetEquipment(config);
 
-		// Set Extended BIOS Data Area (EBDA) unsafety for PS/55
+		// Set Extended BIOS Data Area (EBDA) for PS/55
 		if (IS_PS55_ARCH) {
 			mem_writew(BIOS_EBDA_POINTER, BIOS_EBDA_SEGMENT_ADDRESS);
 			real_writeb(BIOS_EBDA_SEGMENT_ADDRESS, 0x00, 0x01);//Offset 00h: Size of EBDA = 1 kilo byte
