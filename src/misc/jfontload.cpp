@@ -403,7 +403,9 @@ static Bitu LoadIBMJROMFont(const char* fname) {
 	fseek(mfile, 0, SEEK_SET);
 	if (fsize > DBCS24_LEN) {
 		fsize = DBCS24_LEN;//truncate read data
-		//LOG_MSG("MSG: The size of font file is too large: %s", fname);
+#ifdef _DEBUG
+		LOG_MSG("MSG: The binary ROM font is truncated: %s", fname);
+#endif
 		//fclose(mfile);
 		//return 1;
 	}
