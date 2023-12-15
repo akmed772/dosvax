@@ -26,8 +26,8 @@
 #define BIOS_ADDRESS_LPT1               0x408
 #define BIOS_ADDRESS_LPT2               0x40a
 #define BIOS_ADDRESS_LPT3               0x40c
-#define BIOS_EBDA_POINTER               0x40e//for PS/55
-#define BIOS_EBDA_SEGMENT_ADDRESS       0x7800//for PS/55 (Range 0x9FC0 may be overwritten by DOSBox shell)
+#define BIOS_EBDA_POINTER               0x40e  //for PS/55
+#define BIOS_EBDA_SEGMENT_ADDRESS       0x9FC0 //for PS/55
 #define BIOS_CONFIGURATION              0x410
 /* 0x412 is reserved */
 #define BIOS_MEMORY_SIZE                0x413
