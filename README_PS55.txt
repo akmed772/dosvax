@@ -76,6 +76,9 @@ A. You can't. The 24-pixel SBCS font of DOS/V have 12 x 24 pixel font while PS/5
 Q. The emulator shuts down when booting DOS K3.x.
 A. You need disable $BANK386.SYS in CONFIG.SYS.
 
+Q. Booting DOS K3.3 from a hard drive image causes a hang.
+A. The number of Sectors per Track is too large. This causes the segment overflow during the bootloader loads IBMBIO.SYS into the memory. Try a different CHS parameter to the IMGMOUNT command.
+
 Q. A printer error occurs when booting DOS J4.0.
 A. You need disable Disney Sound Source emulation to run DOS J4.0 and later. Check dosbox.conf.
 
