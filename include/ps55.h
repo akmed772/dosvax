@@ -55,6 +55,7 @@ struct PS55Registers {
 	Bit8u cursor_blinkspeed = 0xff;
 	Bit16u crtc_reg[0x20];//CRTC registers
 	Bit8u p3e1_reg[0x20];//CRTC registers
+	Bit8u attr_reg[0x20];//ATTR registers for debug
 	Bit8u text_mode03 = 0;//3e8 18
 	PageHandler* pagehndl_backup[32];
 	Bit8u data3e1_02 = 0;//3e1 02
