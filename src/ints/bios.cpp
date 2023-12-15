@@ -1155,7 +1155,8 @@ public:
 			else mem_writew(BIOS_MEMORY_SIZE,640);
 			mem_writew(BIOS_TRUE_MEMORY_SIZE,640);
 		}
-		// PS/55 Japanese DOS increments this value when booting, and 
+		// Reserve the last one kilobyte for EBDA
+		// PS/55 DOS will increment this value when booting, and 
 		// DOS or an application sometimes write to an address above A0000h causing crash.
 		else if (IS_PS55_ARCH) mem_writew(BIOS_MEMORY_SIZE, 639);//for PS/55
 		else mem_writew(BIOS_MEMORY_SIZE,640);

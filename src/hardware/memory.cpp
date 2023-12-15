@@ -524,14 +524,15 @@ static Bitu read_p92(Bitu port,Bitu iolen) {
 
 void RemoveEMSPageFrame(void) {
 	//for PS/55 and AX
-	/* Setup rom at 0xc8000-0xf0000 */
-	for (Bitu ct=0xc8;ct<0xf0;ct++) {
+	/*
+	Setup rom at 0xd0000-0xf0000
+	0xc0000-0xcffff is used by DOSBox internal works
+	*/
+	for (Bitu ct=0xd0;ct<0xf0;ct++) {
 		memory.phandlers[ct] = &rom_page_handler;
 	}
-	//Set FFh at C8000-CFFFFh
-	memset((void*)(MemBase + 0xC8000), 0xff, 32 * 1024);
-	//Set FFh at D0000-DFFFFh
-	memset((void*)(MemBase + 0xD0000), 0xff, 64 * 1024);
+	//Set FFh at D0000-EFFFFh
+	memset((void*)(MemBase + 0xD0000), 0xff, 128 * 1024);
 }
 
 void PreparePCJRCartRom(void) {
