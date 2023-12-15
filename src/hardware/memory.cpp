@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
- *  Copyright (C) 2021-2022 akm
+ *  Copyright (C) 2021-2023 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -523,10 +523,15 @@ static Bitu read_p92(Bitu port,Bitu iolen) {
 }
 
 void RemoveEMSPageFrame(void) {
-	/* Setup rom at 0xe0000-0xf0000 */
-	for (Bitu ct=0xe0;ct<0xf0;ct++) {
+	//for PS/55 and AX
+	/* Setup rom at 0xc8000-0xf0000 */
+	for (Bitu ct=0xc8;ct<0xf0;ct++) {
 		memory.phandlers[ct] = &rom_page_handler;
 	}
+	//Set FFh at C8000-CFFFFh
+	memset((void*)(MemBase + 0xC8000), 0xff, 32 * 1024);
+	//Set FFh at D0000-DFFFFh
+	memset((void*)(MemBase + 0xD0000), 0xff, 64 * 1024);
 }
 
 void PreparePCJRCartRom(void) {
@@ -565,10 +570,10 @@ public:
 		/* Clear the memory, as new doesn't always give zeroed memory
 		 * (Visual C debug mode). We want zeroed memory though. */
 		memset((void*)MemBase,0x00,memsize*1024*1024);
-		if (IS_PS55_ARCH) {//for PS/55
+		//if (IS_PS55_ARCH) {//for PS/55
 			//Set FFh at D0000-EFFFFh for XMAEM.SYS
-			memset((void*)(MemBase + 0xD0000), 0xff, 128 * 1024);
-		}
+			//memset((void*)(MemBase + 0xD0000), 0xff, 128 * 1024);
+		//}
 		memory.pages = (memsize*1024*1024)/4096;
 		/* Allocate the data for the different page information blocks */
 		memory.phandlers=new  PageHandler * [memory.pages];
@@ -591,8 +596,8 @@ public:
 				memory.phandlers[i] = &rom_page_handler;
 			}
 		} else if (IS_PS55_ARCH) {//for PS/55
-			//Set readonly at 0xd0000-effff
-			for (i = 0xd0; i < 0xf0; i++) {
+			//Set readonly at 0xe0000-effff
+			for (i = 0xe0; i < 0xf0; i++) {
 				memory.phandlers[i] = &rom_page_handler;
 			}
 		}

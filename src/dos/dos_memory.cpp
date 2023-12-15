@@ -1,5 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
+ *  Copyright (C) 2023 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -437,6 +438,9 @@ void DOS_SetupMemory(void) {
 		/* memory below 96k */
 		mcb.SetSize(0x1800 - DOS_MEM_START - (2+mcb_sizes));
 		mcb.SetType(0x4d);
+	} else if (IS_PS55_ARCH) {
+		/* for PS/55; 1k of highest memory under 640K is used by EBDA */
+		mcb.SetSize(0x9FBF - DOS_MEM_START - mcb_sizes);
 	} else {
 		/* complete memory up to 640k available */
 		/* last paragraph used to add UMB chain to low-memory MCB chain */
