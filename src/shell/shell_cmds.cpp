@@ -1349,10 +1349,13 @@ void DOS_Shell::CMD_MODE(char* args) {
 	if (strncasecmp(pbuffer, "0", 1) == 0) {
 		set_videomode = 0x08;
 	}
-	if (strncasecmp(pbuffer, "3", 1) == 0) {
+	else if (strncasecmp(pbuffer, "1", 1) == 0) {
+		set_videomode = 0x0a;
+	}
+	else if (strncasecmp(pbuffer, "3", 1) == 0) {
 		set_videomode = 0x0e;
 	}
-	if (strcasecmp(pbuffer, "/?") == 0) { HELP("MODE"); }
+	else if (strcasecmp(pbuffer, "/?") == 0) { HELP("MODE"); }
 	if (set_videomode != 0) {
 		IO_Write(0x96, 0x08);//enter setup DA
 		if (!(IO_Read(0x102) & 0x01)) IO_Write(0x102, 0x03);//enable DA if it is not
