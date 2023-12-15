@@ -79,7 +79,7 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
     - EGA registers were not readable. Original EGA's registers are not readable, but Super EGA's are readable.
     - The bit 6 of RMOD2 (Select Blink or Intensity) register didn't work.
     - Scancodes of some JP specific keys were changed by the keyboard controller when the Keyboard BIOS was in the US mode. The entire operation should be done by the Keyboard BIOS.
-    - Set FFh at C8000-DFFFFh to use it as either EMS memory or UMB.
+    - Set FFh at D0000-EFFFFh to use it as either EMS memory or UMB.
     - Added a resolution to support a mouse correctly when the video mode is 52h or 53h (JEGA graphics mode).
   - Following changes to improve emulation in PS/55 mode
     - Set the segment address of Extended BIOS Data Area at the highest memory under 640k, and adjust size of DOSBox MCB.
