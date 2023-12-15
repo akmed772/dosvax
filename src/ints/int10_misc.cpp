@@ -228,7 +228,7 @@ void INT10_EGA_RIL_ReadRegister(Bit8u & bl, Bit16u dx) {
 		IO_Write(port,bl);
 		bl = IO_Read(port+1);
 		if(port == 0x3c0) IO_Read(real_readw(BIOSMEM_SEG,BIOSMEM_CRTC_ADDRESS) + 6);
-		LOG(LOG_INT10,LOG_NORMAL)("EGA RIL read used with multi-reg");
+		//LOG(LOG_INT10,LOG_NORMAL)("EGA RIL read used with multi-reg");
 	}
 }
 
@@ -236,6 +236,7 @@ void INT10_EGA_RIL_WriteRegister(Bit8u & bl, Bit8u bh, Bit16u dx) {
 	Bit16u port = 0;
 	Bit16u regs = 0;
 	EGA_RIL(dx,port,regs);
+	//LOG_MSG("INT10_EGA_RIL_WriteR: port %x data %x idx %x", port, bh, bl);
 	if(regs == 0) {
 		if(port) IO_Write(port,bl);
 	} else {
@@ -248,7 +249,7 @@ void INT10_EGA_RIL_WriteRegister(Bit8u & bl, Bit8u bh, Bit16u dx) {
 			IO_Write(port+1,bh);
 		}
 		bl = bh;//Not sure
-		LOG(LOG_INT10,LOG_NORMAL)("EGA RIL write used with multi-reg");
+		//LOG(LOG_INT10,LOG_NORMAL)("EGA RIL write used with multi-reg");
 	}
 }
 

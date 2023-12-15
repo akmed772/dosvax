@@ -638,7 +638,7 @@ graphics_chars:
 	case 0x50:// Set/Read JP/US mode of CRT BIOS
 		switch (reg_al) {
 			case 0x00:
-				LOG(LOG_INT10, LOG_NORMAL)("AX CRT BIOS 5000h is called.");
+				//LOG(LOG_INT10, LOG_NORMAL)("AX CRT BIOS 5000h is called.");
 				if (INT10_AX_SetCRTBIOSMode(reg_bx)) reg_al = 0x00;
 				else reg_al = 0x01;
 				break;
@@ -666,7 +666,7 @@ graphics_chars:
 			//AL=status 00h=Success 01h=Failed
 		case 0x00:
 		{
-			LOG(LOG_INT10, LOG_NORMAL)("AX CRT BIOS 5100h is called.");
+			//LOG(LOG_INT10, LOG_NORMAL)("AX CRT BIOS 5100h is called.");
 			Bitu buf_es = SegValue(es);
 			Bitu buf_bp = reg_bp;
 			Bitu chr = reg_dx;
@@ -698,7 +698,7 @@ graphics_chars:
 		//AL=status 00h=Success 01h=Failed
 		case 0x01:
 		{
-			LOG(LOG_INT10, LOG_NORMAL)("AX CRT BIOS 5101h is called.");
+			//LOG(LOG_INT10, LOG_NORMAL)("AX CRT BIOS 5101h is called.");
 			Bitu buf_es = SegValue(es);
 			Bitu buf_bp = reg_bp;
 			Bitu chr = reg_dx;
@@ -748,7 +748,7 @@ graphics_chars:
 		break;
 	case 0x52:// Set/Read virtual text ram buffer when the video mode is JEGA graphic mode
 		if(INT10_AX_GetCRTBIOSMode() == 0x01) break;//exit if CRT BIOS is in US mode
-		LOG(LOG_INT10,LOG_NORMAL)("AX CRT BIOS 52xxh is called.");
+		//LOG(LOG_INT10,LOG_NORMAL)("AX CRT BIOS 52xxh is called.");
 		switch (reg_al) {
 		case 0x00:
 		{
@@ -778,7 +778,7 @@ graphics_chars:
 		break;
 	case 0x82:// Set/Read the scroll mode when the video mode is JEGA graphic mode
 		if(INT10_AX_GetCRTBIOSMode() == 0x01) break;//exit if CRT BIOS is in US mode
-		LOG(LOG_INT10,LOG_NORMAL)("AX CRT BIOS 82xxh is called.");
+		//LOG(LOG_INT10,LOG_NORMAL)("AX CRT BIOS 82xxh is called.");
 		switch (reg_al) {
 		case 0x00:
 			if (reg_bl == -1) {//Read scroll mode
@@ -799,7 +799,7 @@ graphics_chars:
 	case 0x83:// Read the video RAM address and virtual text video RAM
 		//Out: AX=base address of video RAM, ES:BX=base address of virtual text video RAM
 		if(INT10_AX_GetCRTBIOSMode() == 0x01) break;//exit if CRT BIOS is in US mode
-		LOG(LOG_INT10,LOG_NORMAL)("AX CRT BIOS 83xxh is called.");
+		//LOG(LOG_INT10,LOG_NORMAL)("AX CRT BIOS 83xxh is called.");
 		switch (reg_al) {
 		case 0x00:
 		{
