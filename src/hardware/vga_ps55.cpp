@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2022 akm
+Copyright (c) 2021-2023 akm
 All rights reserved.
 This content is under the MIT License.
 
@@ -328,7 +328,14 @@ Bitu MCA_Card_Reg_Read(Bitu port, Bitu len) {
 	if ((mca.mothersetupen)) {//I/O 94h bit 7 is on
 		switch (port) {
 		case 0x102://System Board POS Register 2 - External I/O Configuration
-			ret = 0x2f;//0010 1111
+			//Bit 7: Disable Parallel Port Extended Mode
+			//Bit 6, 5: Parallel Port Select
+			//Bit 4: Enable Parallel Port
+			//Bit 3: Serial Port Select
+			//Bit 2: Enable Serial Port
+			//Bit 1: Enable Diskette Drive Interface
+			//Bit 0: Enable System Board
+			ret = 0xaf;//1010 1111
 			break;
 		default:
 			break;
@@ -392,6 +399,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		ps55.prevdata = val;
 	switch (port) {
 	case 0x3e1://?
+		//LOG_MSG("PS55_3E1(??): Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d)", port, ps55.idx_3e1, ps55.p3e1_reg[ps55.idx_3e1], ps55.p3e1_reg[ps55.idx_3e1], val, val);
 		if (ps55.idx_3e1 < 0x20) ps55.p3e1_reg[ps55.idx_3e1] = val;//save value for 0x1f function
 		switch (ps55.idx_3e1) {
 		case 0x00:
@@ -428,10 +436,10 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		}
 		//LOG_MSG("PS55_3E1(??): Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e1, val, val);
 		break;
-	case 0x3e3://Font Buffer Registers (undoc) : TODO IBM 5550 BASIC uses many unknown regs (Index 20-2Fh)
+	case 0x3e3://Font Buffer Registers (undoc) : TODO IBM 5550 Graphics Support Option uses many unknown regs (Index 20-2Fh)
 		switch (ps55.idx_3e3) {
-		case 0x00://video memory B8000h
-			//LOG_MSG("PS55_FONT: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
+		case 0x00:
+			//LOG_MSG("PS55_FONT: Write to port %x, idx %x, val %02xh (%d) -> val %02xh (%d)", port, ps55.idx_3e3, ps55.mem_conf, ps55.mem_conf, val, val);
 			if ((ps55.mem_conf & 0x40) ^ (val & 0x40)) {
 				ps55.mem_conf = val;
 				VGA_DetermineMode();//setup vga drawing if the value is changed
@@ -459,10 +467,11 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		//LOG_MSG("PS55_3E3(FONT): Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 		break;
 	case 0x3e5://CRT Controller Registers (undocumented)
-		if (ps55.idx_3e5 < 0x20) ps55.crtc_reg[ps55.idx_3e5] = val;//save value for 0x1f function
 #ifdef C_HEAVY_DEBUG
-		//if (!(ps55.idx_3e5 == 0xe || ps55.idx_3e5 == 0xf)) LOG_MSG("PS55_CRTC: Write to port %x, idx %x, val %02xh (%d), m%d, len %d", port, ps55.idx_3e5, val, val, ps55.crtc_reg[0x19], len);
+		//if (!(ps55.idx_3e5 == 0xe || ps55.idx_3e5 == 0xf))
+		//	LOG_MSG("PS55_CRTC: Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d), len %d", port, ps55.idx_3e5, ps55.crtc_reg[ps55.idx_3e5], ps55.crtc_reg[ps55.idx_3e5], val, val, len);
 #endif
+		if (ps55.idx_3e5 < 0x20) ps55.crtc_reg[ps55.idx_3e5] = val;//save value for 0x1f function
 		switch (ps55.idx_3e5) {
 		//PS/55 actually has 16-bit registers, but in DOSBox, this uses the overflow register to overlap the VGA. Arkward:-<
 		//6, 0c, 0e, 10, 12, 15, 16, 18
@@ -598,7 +607,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 	case 0x3ec:
 		switch (ps55.idx_3eb) {
 		case 0x00://Set/Reset
-			//LOG_MSG("PS55_GC Set/Reset (00h) val %02xh (%d)", val, val);
+			//LOG_MSG("PS55_GC: Set/Reset (00h) val %02xh (%d) -> %02xh (%d)", ps55.set_reset, ps55.set_reset, val, val);
 			ps55.set_reset = val & 0xff;
 			ps55.full_set_reset_low = FillTable[val & 0x0f];
 			ps55.full_enable_and_set_reset_low = ps55.full_set_reset_low & ps55.full_enable_set_reset_low;
@@ -606,7 +615,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			ps55.full_enable_and_set_reset_high = ps55.full_set_reset_high & ps55.full_enable_set_reset_high;
 			break;
 		case 0x01://Enable Set/Reset
-			//LOG_MSG("PS55_GC Enable Set/Reset (01h) val %02xh (%d)", val, val);
+			//LOG_MSG("PS55_GC: Enable Set/Reset (01h) val %02xh (%d) -> %02xh (%d)", ps55.enable_set_reset, ps55.enable_set_reset, val, val);
 			ps55.enable_set_reset = val & 0xff;
 			ps55.full_enable_set_reset_low = FillTable[val & 0x0f];
 			ps55.full_not_enable_set_reset_low = ~ps55.full_enable_set_reset_low;
@@ -619,7 +628,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			ps55.data_rotate = val & 0x0f;
 			break;
 		case 0x04://Read Map Select
-			//LOG_MSG("PS55_GC: Read Map Select (04h) val %02xh (%d)", val, val);
+			//LOG_MSG("PS55_GC: Read Map Select (04h) val %02xh (%d) -> %02xh (%d)", vga.gfx.read_map_select, vga.gfx.read_map_select, val, val);
 			vga.gfx.read_map_select = val & 0x07;
 			vga.config.read_map_select = val & 0x07;
 			break;
@@ -636,7 +645,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			ps55.full_bit_mask_high = ExpandTable[val & 0xff];
 			break;
 		case 0x0a://Map Mask
-			//LOG_MSG("PS55_GC: Map Mask (0Ah) val %02xh (%d)", val, val);
+			//LOG_MSG("PS55_GC: Map Mask (0Ah) val %02xh (%d) -> %02xh (%d)", ps55.map_mask, ps55.map_mask, val, val);
 			ps55.map_mask = val & 0xff;
 			ps55.full_map_mask_low = FillTable[val & 0x0f];
 			ps55.full_not_map_mask_low = ~ps55.full_map_mask_low;
@@ -646,7 +655,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x0b://Command (must be 08h according to the IBM reference) but J-DOS uses 0Bh
 			// 08 0000 1000
 			// 0B 0000 1011
-			//LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d)", val, val);
+			//LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d) -> %02xh (%d)", vga.config.raster_op, vga.config.raster_op, val & 3, val & 3);
 			vga.config.raster_op = val & 3;//?
 			break;
 		case 0x05://Mode
@@ -679,7 +688,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 	if (len == 1 && ps55.latch_3e8 == false && port == 0x3e8)
 	{
 #ifdef C_HEAVY_DEBUG
-		LOG_MSG("PS55_ATTR: Set index %02xh (%d), not latched", val, val);
+		//LOG_MSG("PS55_ATTR: Set index %02xh (%d), not latched", val, val);
 #endif
 		ps55.idx_3e8 = val;
 		ps55.latch_3e8 = true;
@@ -702,6 +711,10 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 #endif
 		}
 		ps55.latch_3e8 = false;
+#ifdef C_HEAVY_DEBUG
+		//LOG_MSG("PS55_ATTR: Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d), len %d", port, ps55.idx_3e8, ps55.attr_reg[ps55.idx_3e8 & 0x1f], ps55.attr_reg[ps55.idx_3e8 & 0x1f], data, data, len);
+#endif
+		ps55.attr_reg[ps55.idx_3e8 & 0x1f] = data;
 		//!!!!!  ps55.idx_3e8=Index, data=Data   !!!!!
 		switch (ps55.idx_3e8 & 0x1f) {
 		case 0x0a://Cursor start and options
@@ -1004,15 +1017,34 @@ void DetermineMode_PS55() {
 		ps55.crtc_reg[0x1d],
 		ps55.crtc_reg[0x1e],
 		ps55.crtc_reg[0x1f]);
+	LOG_MSG("ATTR 0x10-17: %02X %02X %02X %02X %02X %02X %02X %02X",
+		ps55.attr_reg[0x10],
+		ps55.attr_reg[0x11],
+		ps55.attr_reg[0x12],
+		ps55.attr_reg[0x13],
+		ps55.attr_reg[0x14],
+		ps55.attr_reg[0x15],
+		ps55.attr_reg[0x16],
+		ps55.attr_reg[0x17]);
+	LOG_MSG("ATTR 0x18-1f: %02X %02X %02X %02X %02X %02X %02X %02X",
+		ps55.attr_reg[0x18],
+		ps55.attr_reg[0x19],
+		ps55.attr_reg[0x1a],
+		ps55.attr_reg[0x1b],
+		ps55.attr_reg[0x1c],
+		ps55.attr_reg[0x1d],
+		ps55.attr_reg[0x1e],
+		ps55.attr_reg[0x1f]);
 #endif
-	if (ps55.carden)//TODO: need to examine how to determine the mode
+	if (ps55.carden)
 	{
 		vga.vmemwrap = 512 * 1024;
 		if (!(ps55.data3e1_02 & 0x01)) {
 		//if (ps55.data3e8_3f & 0x02) {//this glitches the screen because the function is called after DOS clears the vmem.
 		//if(1){//for debug
-			if (~ps55.data3e1_02 & 0x04) {
-			//if(1){
+			//if (~ps55.data3e1_02 & 0x04) {
+			//if(0){
+			if (vga.attr.color_plane_enable == 0x01) {
 #ifdef C_HEAVY_DEBUG
 				LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 monochrome graphics.");
 #endif
@@ -1059,30 +1091,6 @@ void DetermineMode_PS55() {
 		}
 	}
 }
-//backup
-//vga.vmemwrap = 1024 * 1024;
-//if (!(ps55.data3e1_02 & 0x01)) {
-////if(1){
-//	//if (ps55.data3e1_02 & 0x04) {
-//	if(1){
-//		LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 8-color graphics.");
-//		VGA_SetMode(M_PS55_GFX);
-//	}
-//	else {
-//		LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 monochrome graphics.");
-//		VGA_SetMode(M_PS55_GFX_MONO);
-//	}
-//}
-//else {
-//	if (ps55.mem_conf & 0x40) {
-//		LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 Mode 03 text.");
-//		VGA_SetMode(M_PS55_M3TEXT);
-//	}
-//	else {
-//		LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 text.");
-//		VGA_SetMode(M_PS55_TEXT);
-//	}
-//}
 /*
 DOS K3.3
 Mode 0 C8 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
@@ -1102,17 +1110,6 @@ Mode 3 CE 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
 Mode 4 GD 3e1_2 14, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
           CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 VMX  3 C3 3e1_2 15, 3e3_0 6B, 3e5_1c 00, 3e5_1f 02, 3e8_38 01, 3e8_3f 0C
-
-Mode 1 GA 3e1_2 10, 3e3_0 00
-Mode 1 GA 3e1_2 10, 3e3_0 2B
-          CRTC 0x0c-1f: 00 00 01 00 80 00 04 02
-          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
-
-Mode 4 GD 3e1_2 10, 3e3_0 2B
-Mode 4 GD 3e1_2 14, 3e3_0 2B
-          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
-          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
-
 */
 
 //[Font ROM Map (DA1)]

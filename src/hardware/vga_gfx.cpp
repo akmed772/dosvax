@@ -32,8 +32,7 @@ Bitu read_p3ce(Bitu /*port*/,Bitu /*iolen*/) {
 	return gfx(index);
 }
 
-void write_p3cf(Bitu /*port*/,Bitu val,Bitu iolen) {
-	//LOG_MSG("VGA GFX write %" sBitfs(X) " to reg %X",val,gfx(index));
+void write_p3cf(Bitu port,Bitu val,Bitu iolen) {
 	switch (gfx(index)) {
 	case 0:	/* Set/Reset Register */
 		gfx(set_reset)=val & 0x0f;
@@ -226,13 +225,9 @@ void VGA_SetupGFX(void) {
 	if (IS_EGAVGA_ARCH) {
 		IO_RegisterWriteHandler(0x3ce,write_p3ce,IO_MB);
 		IO_RegisterWriteHandler(0x3cf,write_p3cf,IO_MB);
-		//IO_RegisterWriteHandler(0x3ea, write_p3ce, IO_MB);//modified for PS/55
-		//IO_RegisterWriteHandler(0x3eb, write_p3cf, IO_MB);//modified for PS/55
-		if (IS_VGA_ARCH) {
+		if (IS_VGA_ARCH || IS_AX_ARCH) {
 			IO_RegisterReadHandler(0x3ce,read_p3ce,IO_MB);
 			IO_RegisterReadHandler(0x3cf,read_p3cf,IO_MB);
-			//IO_RegisterReadHandler(0x3ea, read_p3ce, IO_MB);//modified for PS/55
-			//IO_RegisterReadHandler(0x3eb, read_p3cf, IO_MB);//modified for PS/55
 		}
 	}
 }

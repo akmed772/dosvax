@@ -73,7 +73,8 @@ void VGA_ATTR_SetEGAMonitorPalette(EGAMonitorMode m) {
 
 void VGA_ATTR_SetPalette(Bit8u index, Bit8u val) {
 	// the attribute table stores only 6 bits
-	val &= 63; 
+	val &= 63;
+	//LOG_MSG("ATTR_SetPalette: Write val %02xh (%d) to idx %x", val, val, index);
 	vga.attr.palette[index] = val;
 
 	// apply the plane mask
@@ -98,7 +99,7 @@ Bitu read_p3c0(Bitu /*port*/,Bitu /*iolen*/) {
 }
  
 void write_p3c0(Bitu /*port*/,Bitu val,Bitu iolen) {
-	//LOG_MSG("p3c0: Write to val %02xh (%d)", val, val);
+	//LOG_MSG("p3c0: Write val %02xh (%d)", val, val);
 	if (!vga.internal.attrindex) {
 		attr(index)=val & 0x1F;
 		vga.internal.attrindex=true;
@@ -111,6 +112,7 @@ void write_p3c0(Bitu /*port*/,Bitu val,Bitu iolen) {
 		*/
 		return;
 	} else {
+		//LOG_MSG("p3c0: Write val %02xh (%d) to idx %x", val, val, attr(index));
 		vga.internal.attrindex=false;
 		switch (attr(index)) {
 			/* Palette */
@@ -291,7 +293,7 @@ void VGA_SetupAttr(void) {
 		IO_RegisterWriteHandler(0x3c0,write_p3c0,IO_MB);
 		if (machine==MCH_EGA)
 			IO_RegisterWriteHandler(0x3c1,write_p3c0,IO_MB); // alias on EGA
-		if (IS_VGA_ARCH) {
+		if (IS_VGA_ARCH || IS_AX_ARCH) {
 			IO_RegisterReadHandler(0x3c0,read_p3c0,IO_MB);
 			IO_RegisterReadHandler(0x3c1,read_p3c1,IO_MB);
 		}

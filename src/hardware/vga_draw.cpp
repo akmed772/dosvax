@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
- *  Copyright (C) 2016-2022 akm
+ *  Copyright (C) 2016-2023 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -553,9 +553,11 @@ skip_cursor:
 //  *  -0DB6Fh ( 4800-8DB6Fh;IBMJ 100-1F7Dh) : DBCS (24 x 24)
 //10000-16D1Fh (90000-96D1Fh;IBMJ 2000-2183h) : IBM Extended Characters
 //18000-1BFFFh (98000-9BFFFh;around IBMJ 21C7-22AAh) : Basic SBCS (13 x 30)
+//1FD20-  *
 //Bank 5
+//  *  -0D09Fh (9FD20-AD09Fh;IBMJ 2384-2673h) : Gaiji 752 chs (maybe blank)
 //10000-13FFFh (B0000-B3FFFh;around IBMJ 271C-27FFh) : Extended SBCS (13 x 30)
-//14000-146FFh (B4000-B46FFh) : Half-width box drawing characters (7 lines * 4 parts * 64 bytes) used by DOS Bunsho
+//14000-146FFh (B4000-B46FFh;IBMJ 2800-2818h) : Half-width box drawing characters (7 lines * 4 parts * 64 bytes) used by DOS Bunsho
 //             (B9580-?;IBMJ 2930-295e?) : Full-width box drawing characters
 //
 //[Gaiji RAM Map (DA1)]
@@ -565,14 +567,13 @@ skip_cursor:
 // 
 //[Gaiji RAM Map (DA2)]
 // Bank 0 00000-1FFFFh placed between A0000h-BFFFFh
-// 00000-1F7FFh(A0000-BF7FFh): ??? (USRFNT utility places working data at A0000-7Fh) 129,024 bytes = 126 kb
-//                             256 + 1536 chs (72 bytes / char)
-// 1F800-1FFFFh(BF800-BFFFFh): Gaiji(SJIS: F040-F04Fh, IBM: 2384-2393h) 16 chs
+// 00000-1F7FFh(A0000-BF7FFh): Gaiji Temporary (Kuten 103-114 ku,IBM: 2674-2ADBh) 1008 chs 128 bytes
+// 1F800-1FFFFh(BF800-BFFFFh): Gaiji Resident (SJIS: F040-F04Fh, IBM: 2384-2393h) 16 chs
 // 
 // Bank 1 20000-3FFFFh placed between A0000h-BFFFFh
-// 20000-33FFFh(A0000-B3FFFh): Gaiji(SJIS: F050-F39Ch, IBM: 2394-2613h) 640 chs
+// 20000-33FFFh(A0000-B3FFFh): Gaiji Resident (SJIS: F050-F39Ch, IBM: 2394-2613h) 640 chs
 // 34000-37FFFh(B4000-B7FFFh): Basic SBCS(00-FFh, ATTR bit 1 = off)
-// 38000-3AFFFh(B8000-BAFFFh): Gaiji(SJIS: F39D-F3FCh, IBM: 2614-2673h) 96 chs
+// 38000-3AFFFh(B8000-BAFFFh): Gaiji Resident (SJIS: F39D-F3FCh, IBM: 2614-2673h) 96 chs
 // 3C000-3FFFFh(BC000-BFFFFh): Extended SBCS(00-FFh, ATTR bit 1 = on)
 //
 //[IBM to Gaiji conv tbl]
@@ -954,11 +955,15 @@ static Bit8u* VGA_TEXT_JEGA_Draw_Line(Bitu vidstart, Bitu line) {
 			if (!(jega.RMOD2 & 0x80))//RMOD2 bit7: First Attribute EGA/JEGA
 			{//--Parse attribute byte as EGA mode--
 				background = attr >> 4; //in EGA
-				// if blinking is enabled bit7 is not mapped to attributes
-				foreground = (vga.draw.blink || (!(attr & 0x80))) ?
-					(attr & 0xf) : background;
-				// choose foreground color if blinking not set for this cell or blink on
-				if (vga.draw.blinking) background &= ~0x8;
+				if (!(jega.RMOD2 & 0x20)) {//RMOD2 bit6: Select Blink or Intensity
+					// if blinking is enabled bit7 is not mapped to attributes
+					foreground = (vga.draw.blink || (!(attr & 0x80))) ?
+						(attr & 0xf) : background;
+					// choose foreground color if blinking not set for this cell or blink on
+					if (vga.draw.blinking) background &= ~0x8;
+				}
+				else
+					foreground = attr & 0x0f;
 				//Clear basic attribute
 				bsattr = 0;
 			}
@@ -1061,7 +1066,7 @@ static Bit8u* VGA_TEXT_JEGA_Draw_Line(Bitu vidstart, Bitu line) {
 						}
 					}
 				}
-				// Ignore wide char code, put blank
+				// Ignore a wide char code, and put blank
 				else
 					for (Bitu n = 0; n < 16; n++)
 						*draw++ = vga.dac.xlat16[background];
@@ -1071,7 +1076,7 @@ static Bit8u* VGA_TEXT_JEGA_Draw_Line(Bitu vidstart, Bitu line) {
 						*draw++ = vga.dac.xlat16[foreground];//underline
 			}
 			else for (Bitu n = 0; n < 16; n++) *draw++ = vga.dac.xlat16[background];//draw blank
-			if (bsattr & 0x20) {//vertical line draw at last
+			if (bsattr & 0x20) {// draw vertical line at last
 				draw -= 16;
 				*draw = vga.dac.xlat16[foreground];
 				draw += 16;
