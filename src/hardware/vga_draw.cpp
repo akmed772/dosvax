@@ -956,11 +956,11 @@ static Bit8u* VGA_TEXT_JEGA_Draw_Line(Bitu vidstart, Bitu line) {
 			{//--Parse attribute byte as EGA mode--
 				background = attr >> 4; //in EGA
 				if (!(jega.RMOD2 & 0x20)) {//RMOD2 bit6: Select Blink or Intensity
+					// choose foreground color if blinking not set for this cell or blink on
+					if (vga.draw.blinking) background &= ~0x8;
 					// if blinking is enabled bit7 is not mapped to attributes
 					foreground = (vga.draw.blink || (!(attr & 0x80))) ?
 						(attr & 0xf) : background;
-					// choose foreground color if blinking not set for this cell or blink on
-					if (vga.draw.blinking) background &= ~0x8;
 				}
 				else
 					foreground = attr & 0x0f;
