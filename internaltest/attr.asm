@@ -13,7 +13,7 @@ start:
 	;set offset address for the COM program
 	org	0x100
 	;check the current videomode is 8 (mono) or E (color)
-	mov	ax, 0x0100
+	mov	ax, 0x0f00
 	int	0x10
 	cmp	al, 0x08
 	je	videomode_ok
