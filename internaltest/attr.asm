@@ -1,3 +1,4 @@
+;For testing attribution in PS/55 text mode
 ;Copyright (c) 2021 akm
 ;This content is under the MIT License.
 
@@ -9,10 +10,18 @@ Y_ALIGN equ 800		;=80*2*5
 	global start
 	section .text
 start:
+	;set offset address for the COM program
+	org	0x100
+	;check the current videomode is 8 (mono) or E (color)
+	mov	ax, 0x0100
+	int	0x10
+	cmp	al, 0x08
+	je	videomode_ok
+	cmp	al, 0x0e
+	je	videomode_ok
+	jmp	err
+videomode_ok:
 	;open ATTR.BIN
-	mov	ax, ds
-	add	ax, 0x10;offset DS
-	mov	ds, ax
 	xor	ax, ax
 	mov	ah, 0x3d	;DOS: open an existing file
 					;al=0 (read mode)
