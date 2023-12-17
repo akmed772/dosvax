@@ -32,6 +32,8 @@
 #include <signal.h>
 #include <process.h>
 #include <dos_inc.h>
+//#include <windows.h>
+#include <commdlg.h>//DOSVAX
 #include <imm.h>//DOSVAX
 #endif
 
@@ -2234,6 +2236,55 @@ static BOOL WINAPI ConsoleEventHandler(DWORD event) {
 }
 #endif
 
+HWND GetHWNDSDL()
+{
+	SDL_SysWMinfo info;
+	SDL_VERSION(&info.version);
+	if (SDL_GetWMInfo(&info))
+		return info.window;
+	else
+		return NULL;
+}
+
+//called from mountFloppyDiskDialog (bios_disk.cpp)
+bool OpenFileDialog(char* szFile, int sizeSzFile)
+{
+	bool hresult = false;
+	//Do this to capture the mouse on the open file dialog
+	SDL_ShowCursor(SDL_ENABLE);
+	SDL_WM_GrabInput(SDL_GRAB_ON);
+	SDL_WM_GrabInput(SDL_GRAB_OFF);
+
+#ifdef WIN32
+	HWND hWnd = GetHWNDSDL();
+	if (hWnd == NULL) return false;
+	OPENFILENAME ofn = { 0 };
+	ofn.lStructSize = sizeof(ofn);
+	ofn.hwndOwner = hWnd;
+	ofn.lpstrFile = szFile;
+	ofn.nMaxFile = sizeSzFile;
+	ofn.lpstrFilter = "All files (*.*)\0*.*\0";
+	ofn.nFilterIndex = 1;
+	ofn.lpstrFileTitle = NULL;
+	ofn.nMaxFileTitle = 0;
+	ofn.lpstrInitialDir = NULL;
+	ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+	hresult = GetOpenFileName(&ofn);
+#endif
+	//Restore the input grab state
+	if (sdl.mouse.locked) {
+		SDL_WM_GrabInput(SDL_GRAB_ON);
+		SDL_ShowCursor(SDL_DISABLE);
+	}
+	else {
+		SDL_WM_GrabInput(SDL_GRAB_OFF);
+		if (sdl.mouse.autoenable || !sdl.mouse.autolock) SDL_ShowCursor(SDL_ENABLE);
+	}
+	if (hresult == true)
+		return true;
+	else
+		return false;
+}
 
 /* static variable to show wether there is not a valid stdout.
  * Fixes some bugs when -noconsole is used in a read only directory */

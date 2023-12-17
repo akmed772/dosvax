@@ -28,8 +28,6 @@
 #include "../dos/drives.h"
 #include "mapper.h"
 
-
-
 diskGeo DiskGeometryList[] = {
 	{ 160,  8, 1, 40, 0},	// SS/DD 5.25"
 	{ 180,  9, 1, 40, 0},	// SS/DD 5.25"
@@ -150,6 +148,41 @@ void swapInNextDisk(bool pressed) {
 	swapping_requested = true;
 }
 
+extern bool OpenFileDialog(char* szFile, int sizeSzFile);
+
+void mountFloppyDiskDialog(bool pressed) {//for DOSVAX
+	TCHAR filename[MAX_PATH] = { 0 };
+	if (!pressed)
+		return;
+	if (!OpenFileDialog(filename, sizeof(filename)))
+	{
+		LOG_MSG("MountFloppy: Dialog has been cancelled.");
+		return;
+	}
+
+	FILE* newDisk = fopen_wrap(filename, "rb+");
+	if (!newDisk) {
+		LOG_MSG("MountFloppy: Cannot open the file.");
+		return;
+	}
+	fseek(newDisk, 0L, SEEK_END);
+	Bit32u imagesize = (ftell(newDisk) / 1024);
+	if (imagesize > 2880) {
+		fclose(newDisk);
+		LOG_MSG("MountFloppy: The file may be not a floppy disk image.");
+		return;
+	}
+	imageDisk* newImage = new imageDisk(newDisk, filename, imagesize, false);
+	if (!newImage->active)
+	{
+		LOG_MSG("MountFloppy: The disk geometry doesn't match for floppy drives.");
+		return;
+	}
+	//set the new disk image to Drive A
+	if (imageDiskList[0] != NULL) delete imageDiskList[0];
+	imageDiskList[0] = newImage;
+	LOG_MSG("Drive number 0 mounted as %s\n", filename);
+}
 
 Bit8u imageDisk::Read_Sector(Bit32u head,Bit32u cylinder,Bit32u sector,void * data) {
 	Bit32u sectnum;
@@ -403,7 +436,7 @@ static Bitu INT13_DiskHandler(void) {
 				bufptr++;
 			}
 		}
-//		LOG(LOG_BIOS, LOG_ERROR)("INT13: Read data, Drive:%d, DH:%x, CX:%x", drivenum, reg_dh, reg_cx);
+		//LOG(LOG_BIOS, LOG_ERROR)("INT13: Read data, Drive:%d, DH:%x, CX:%x", drivenum, reg_dh, reg_cx);
 		reg_ah = 0x00;
 		CALLBACK_SCF(false);
 		break;
@@ -621,6 +654,7 @@ void BIOS_SetupDisks(void) {
 	mem_writeb(BIOS_HARDDISK_COUNT,2);
 
 	MAPPER_AddHandler(swapInNextDisk,MK_f4,MMOD1,"swapimg","Swap Image");
+	MAPPER_AddHandler(mountFloppyDiskDialog, MK_f3, MMOD1, "mountflp", "Mount Flp");
 	killRead = false;
 	swapping_requested = false;
 }
