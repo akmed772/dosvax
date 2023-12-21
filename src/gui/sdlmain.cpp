@@ -32,7 +32,6 @@
 #include <signal.h>
 #include <process.h>
 #include <dos_inc.h>
-//#include <windows.h>
 #include <commdlg.h>//DOSVAX
 #include <imm.h>//DOSVAX
 #endif
