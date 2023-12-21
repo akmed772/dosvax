@@ -77,7 +77,10 @@ Q. The emulator shuts down when booting DOS K3.x.
 A. You need disable $BANK386.SYS in CONFIG.SYS.
 
 Q. Booting DOS K3.3 from a hard drive image causes a hang.
-A. The number of Sectors per Track is too large. This causes the segment overflow during the bootloader loads IBMBIO.SYS into the memory. Try a different CHS parameter to the IMGMOUNT command.
+A. The number of Sectors per Track is too large. This causes the segment overflow during the bootloader loads IBMBIO.COM into the memory. Try a different CHS parameter to the IMGMOUNT command.
+
+Q. I can't format a 5.25-inch DSHD diskette in DOS K3.x.
+A. Disk geometries for the FORMAT command is determined by the drive type, and the drive type is determined by a mounted disk when the BOOT command is executed. (The real BIOS determines the drive type by the CMOS setting.) If there is no disk mounted for a diskette drive, DOSBox responds it as a DSHD 3.5-inch diskette drive. If you want to format a 5.25-inch diskette, you have to mount a disk image with the corresponding size before you execute the BOOT command.
 
 Q. A printer error occurs when booting DOS J4.0.
 A. You need disable Disney Sound Source emulation to run DOS J4.0 and later. Check dosbox.conf.

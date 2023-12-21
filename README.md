@@ -74,6 +74,12 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4483PS13 (2023/12/20)
+  - Correct text blinking in the JEGA drawing function.
+  - Add a new key bind that shows a dialog to mount a floppy image during the emulator is in operation. (experimental)
+  - Add parameters for the 5.25-inch 640 KB DSQD format in the Disk Geometry List (this format can be recognized by IBM DOS K3.x only).
+  - Fix an issue that FORMAT command of DOS K3.3 makes data of memory broken. This is because the Block Data Structure (BDS) corrupts when DOS initialization calls Int 13h, AH = 08h and the BH register is not cleared.
+  - Fix an issue that some Int 13h functions return an ambiguous error code.
 * Build 4483PS12 (2023/12/15)
   - Fix following issues to improve emulation in AX mode
     - EGA registers were not readable. Original EGA's registers are not readable, but Super EGA's are readable.
