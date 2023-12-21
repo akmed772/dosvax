@@ -651,7 +651,7 @@ void SHELL_Init() {
 		"\xBA \033[36m////  /////////  \033[37m  You can also map AX special keys \033[31mctrl-F1\033[37m.       \xBA\n"
 		"\xBA                                                                    \xBA\n"
 		"\xBA \033[32mHAVE FUN!\033[37m                                                          \xBA\n"
-		"\xBA \033[32makm \033[33mhttp://radioc.web.fc2.com/\033[37m                                     \xBA\n"
+		"\xBA \033[32makm \033[33mhttps://radioc.web.fc2.com/\033[37m                                    \xBA\n"
 		"\xC8\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD"
 		"\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD"
 		"\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xCD\xBC\033[0m\n");
