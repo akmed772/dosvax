@@ -1110,6 +1110,7 @@ void BIOS_ZeroExtendedSize(bool in) {
 void BIOS_SetupKeyboard(void);
 void BIOS_SetupDisks(void);
 extern Bitu call_10;
+static Bit8u Default_Diskette_Params[11] = { 0xA1, 0x02, 0x25, 0x02, 0x12, 0x1B, 0xFF, 0x6C, 0xF6, 0x0F, 0x04 };
 
 class BIOS:public Module_base{
 private:
@@ -1314,6 +1315,11 @@ public:
 			//phys_writeb(0xFF84D + 0, 0xEA);				// FARJMP
 			//phys_writew(0xFF84D + 1, RealOff(rptr));	// offset
 			//phys_writew(0xFF84D + 3, RealSeg(rptr));	// segment
+
+			//Make Diskette Drive Parameter Table
+			for (Bitu i = 0; i < sizeof(Default_Diskette_Params); i++) 
+				phys_writeb(Real2Phys(BIOS_INT1E_DISKETTE_PARAMETERS) + i, Default_Diskette_Params[i]);
+			RealSetVec(0x1E, BIOS_INT1E_DISKETTE_PARAMETERS);
 		}
 
 		tandy_sb.port=0;

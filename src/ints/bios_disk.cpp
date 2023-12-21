@@ -28,6 +28,8 @@
 #include "../dos/drives.h"
 #include "mapper.h"
 
+
+
 diskGeo DiskGeometryList[] = {
 	{ 160,  8, 1, 40, 0},	// SS/DD 5.25"
 	{ 180,  9, 1, 40, 0},	// SS/DD 5.25"
@@ -35,6 +37,7 @@ diskGeo DiskGeometryList[] = {
 	{ 320,  8, 2, 40, 1},	// DS/DD 5.25"
 	{ 360,  9, 2, 40, 1},	// DS/DD 5.25"
 	{ 400, 10, 2, 40, 1},	// DS/DD 5.25" (booters)
+	{ 640,  8, 2, 80, 2},	// DS/DD 5.25" (Only DOS K3.x can read) for DOSVAX
 	{ 720,  9, 2, 80, 3},	// DS/DD 3.5"
 	{1200, 15, 2, 80, 2},	// DS/HD 5.25"
 	{1440, 18, 2, 80, 4},	// DS/HD 3.5"
@@ -154,6 +157,13 @@ void mountFloppyDiskDialog(bool pressed) {//for DOSVAX
 	TCHAR filename[MAX_PATH] = { 0 };
 	if (!pressed)
 		return;
+
+	if (imageDiskList[0] != NULL)
+	{
+		delete imageDiskList[0];
+		imageDiskList[0] = NULL;
+	}
+
 	if (!OpenFileDialog(filename, sizeof(filename)))
 	{
 		LOG_MSG("MountFloppy: Dialog has been cancelled.");
@@ -175,13 +185,13 @@ void mountFloppyDiskDialog(bool pressed) {//for DOSVAX
 	imageDisk* newImage = new imageDisk(newDisk, filename, imagesize, false);
 	if (!newImage->active)
 	{
+		delete newImage;//destructor will call fclose
 		LOG_MSG("MountFloppy: The disk geometry doesn't match for floppy drives.");
 		return;
 	}
 	//set the new disk image to Drive A
-	if (imageDiskList[0] != NULL) delete imageDiskList[0];
 	imageDiskList[0] = newImage;
-	LOG_MSG("Drive number 0 mounted as %s\n", filename);
+	LOG_MSG("Drive number 0 mounted as %s", filename);
 }
 
 Bit8u imageDisk::Read_Sector(Bit32u head,Bit32u cylinder,Bit32u sector,void * data) {
@@ -398,7 +408,11 @@ static Bitu INT13_DiskHandler(void) {
 		}
 		if (drivenum >= MAX_DISK_IMAGES || imageDiskList[drivenum] == NULL) {
 			if (drivenum >= DOS_DRIVES || !Drives[drivenum] || Drives[drivenum]->isRemovable()) {
-				reg_ah = 0x01;
+				//for DOSVAX : No disk
+				if (drivenum < 2)//drive not ready
+					reg_ah = 0x80;
+				else
+					reg_ah = 0x01;//invalid param
 				CALLBACK_SCF(true);
 				return CBRET_NONE;
 			}
@@ -415,7 +429,7 @@ static Bitu INT13_DiskHandler(void) {
 			}
 		}
 		if (driveInactive(drivenum)) {
-			reg_ah = 0xff;
+			reg_ah = 0x80;
 			CALLBACK_SCF(true);
 			return CBRET_NONE;
 		}
@@ -443,7 +457,7 @@ static Bitu INT13_DiskHandler(void) {
 	case 0x3: /* Write sectors */
 		
 		if(driveInactive(drivenum)) {
-			reg_ah = 0xff;
+			reg_ah = 0x80;
 			CALLBACK_SCF(true);
 			return CBRET_NONE;
         }                     
@@ -501,7 +515,8 @@ static Bitu INT13_DiskHandler(void) {
 		break;
 	case 0x05: /* Format track */
 		if (driveInactive(drivenum)) {
-			reg_ah = 0xff;
+			//for DOSVAX
+			reg_ah = 0x80;//Time out
 			CALLBACK_SCF(true);
 			return CBRET_NONE;
 		}
@@ -510,12 +525,38 @@ static Bitu INT13_DiskHandler(void) {
 		break;
 	case 0x08: /* Get drive parameters */
 		if(driveInactive(drivenum)) {
+			//for DOSVAX
+			//The default disk geometry for the FORMAT command is determined by the drive type,
+			// and the drive type is determined by a mounted disk when the BOOT command is executed.
+			//If there is no disk mounted for floppy drives when BOOT, DOSBox returns below parameters.
+			if (IS_PS55_ARCH && drivenum < 2)
+			{
+				//1 x DSHD 3.5" drive attached
+				reg_ax = 0;
+				reg_bx = 0x0004;//DSHD 3.5"
+				reg_dl = 0x02;//attached drives
+				reg_dh = 0x01;//max head
+				reg_cl = 18;//bit 7-6: cyl (Bit 9,8), bit 5-0: max sector
+				reg_ch = 79;//cyl (Bit 7-0)
+				////1 x DSHD 5.25" drive attached
+				//reg_ax = 0;
+				//reg_bx = 0x0002;//DSHD 3.5"
+				//reg_dl = 0x02;//attached drives
+				//reg_dh = 0x01;//max head
+				//reg_cl = 15;//bit 7-6: cyl (Bit 9,8), bit 5-0: max sector
+				//reg_ch = 79;//cyl (Bit 7-0)
+				SegSet16(es, RealSeg(BIOS_INT1E_DISKETTE_PARAMETERS));
+				reg_di = RealOff(BIOS_INT1E_DISKETTE_PARAMETERS);
+				CALLBACK_SCF(false);
+				return CBRET_NONE;
+			}
 			last_status = 0x07;
 			reg_ah = last_status;
 			CALLBACK_SCF(true);
 			return CBRET_NONE;
 		}
 		reg_ax = 0x00;
+		reg_bh = 0x00;//for DOSVAX 2023/12/20; for DOS K3.3 to set BDS correctly
 		reg_bl = imageDiskList[drivenum]->GetBiosType();
 		Bit32u tmpheads, tmpcyl, tmpsect, tmpsize;
 		imageDiskList[drivenum]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);
@@ -558,19 +599,18 @@ static Bitu INT13_DiskHandler(void) {
 		else {
 			//floppy drive
 			if (imageDiskList[drivenum]->floppytype < 6)
-				reg_ah = 0x01;//2D
+				reg_ah = 0x01;//2D (no change line available)
 			else
-				reg_ah = 0x02;//2DD/2HD
+				reg_ah = 0x02;//2DD/2HD (change line available)
 		}
 		CALLBACK_SCF(false);//CF=0
 		break;
 	case 0x16: /* Detect media changed : DOSVAX */
 		if (driveInactive(drivenum)) {
-			reg_ah = 0x01;//drive not present
+			reg_ah = 0x80;//drive not ready
 			CALLBACK_SCF(true);
-			return CBRET_NONE;
 		}
-		if (getSwapRequest()) {
+		else if (getSwapRequest()) {
 			reg_ah = 0x06;//change detection
 			CALLBACK_SCF(true);
 		}
@@ -581,39 +621,42 @@ static Bitu INT13_DiskHandler(void) {
 		break;
 	case 0x17: /* Set disk type for format */
 		/* Pirates! needs this to load */
-		LOG(LOG_BIOS, LOG_ERROR)("INT13: Function %x called on drive %x (dos drive %d) reg_al %x", reg_ah, reg_dl, drivenum, reg_al);
+		LOG(LOG_BIOS, LOG_NORMAL)("INT13: Function %x called on drive %x (dos drive %d) reg_al %x", reg_ah, reg_dl, drivenum, reg_al);
 		killRead = true;
 		reg_ah = 0x00;
 		CALLBACK_SCF(false);
 		break;
 	case 0x18: /* Set media type for format : DOSVAX */
+		LOG(LOG_BIOS, LOG_NORMAL)("INT13: Function %x called on drive %x (dos drive %d) reg_cx %x", reg_ah, reg_dl, drivenum, reg_cx);
 		if (driveInactive(drivenum)) {
-			reg_ah = 0x80;//drive not present
+			reg_ah = 0x80;//drive not ready
 			CALLBACK_SCF(true);
 			return CBRET_NONE;
 		}
-		LOG(LOG_BIOS, LOG_ERROR)("INT13: Function %x called on drive %x (dos drive %d) reg_cx %x", reg_ah, reg_dl, drivenum, reg_cx);
 		//Bit32u tmpheads, tmpcyl, tmpsect, tmpsize;
 		Bit16u reqcyl, reqsec;
 		reqcyl = reg_cl & 0xC0;
 		reqcyl <<= 2;
 		reqcyl |= reg_ch;
-		reqcyl++; //AX DOS 3.21 requests max_cyl - 1
+		reqcyl++; //CH = max_cyl - 1
 		reqsec = reg_cl & 0x3F;
 		imageDiskList[drivenum]->Get_Geometry(&tmpheads, &tmpcyl, &tmpsect, &tmpsize);
 		if (reqcyl == tmpcyl && reqsec == tmpsect) {
-			LOG(LOG_BIOS, LOG_ERROR)("INT13: Function 18 returned 0x00 (accepted)");
+			LOG(LOG_BIOS, LOG_NORMAL)("INT13: Function 18 returned 0x00 (accepted)");
 			reg_ah = 0x00;
 			CALLBACK_SCF(false);
 		} else {
 			LOG(LOG_BIOS, LOG_ERROR)("INT13: Function 18 returned 0x0C (denied)");
+#if C_HEAVY_DEBUG
+			LOG(LOG_BIOS, LOG_NORMAL)("CHS Req: %d-%d-%d, Cur: %d-%d-%d", reqcyl, 2, reqsec, tmpcyl, tmpheads, tmpsect);
+#endif
 			reg_ah = 0x0C;
 			CALLBACK_SCF(true);
 		}
 		break;
 	default:
 		LOG(LOG_BIOS,LOG_ERROR)("INT13: Function %x called on drive %x (dos drive %d)", reg_ah,  reg_dl, drivenum);
-		reg_ah=0xff;
+		reg_ah=0x01;
 		CALLBACK_SCF(true);
 	}
 	return CBRET_NONE;
