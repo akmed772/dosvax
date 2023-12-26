@@ -25,12 +25,12 @@ IN THE SOFTWARE.
 
 - getfps5.com - 
 
-This is a dump program to obtain entire font ROM data of the Display Adapter. It requires 768 KB of free drive space. I've never been tested it on the real machine.
+This is a dump program to obtain entire font ROM data of the Display Adapter. It requires 768 KB of free drive space. I've never tested it on the real machine. The actual size of ROM may be different.
 To use the font ROM file, set the line "jfont24rom=" in the [dosbox] section.
 
 - dcbpatch.com - 
 
-This is a patch program for DOS J4.0 / J5.0 to run graphics applications built by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable the Graphics Support Function (It seems an accelerated graphics processor that was originally implemented by an add-on card for IBM 5550) that are not supported by DOSVAX. In DOS K3.x, the color graphics mode doesn't work in emulation.
+This is a patch program for DOS K3.x, J4.0 and J5.0 to run graphics applications developed by IBM BASIC Interpreter or IBM BASIC Compiler. It changes a flag in the Display Configuration Block of DOS I/O workspace to disable the Graphics Support Function (It seems an accelerated graphics processor that was originally implemented by an add-on card for IBM 5550) that are not supported by DOSVAX.
 How to use:
 	Put into the diskimage, and run "dcbpatch" in DOS command line. You can add the command in AUTOEXEC.BAT.
 	Running "dcbpatch f" will run it as a background program, and it patches the DCB every time the display mode has been changed (DOS Function Int 10h, AH=00h). Usually, you don't have to do it unless you run DOSVAX with the PS/55 monochrome monitor mode.
@@ -50,6 +50,7 @@ A. Prepare 12 x 24 and 24 x 24 pixel FONTX2 Japanese font files.
 		3. Run MKXFNT.EXE in DOS, and it generates JPNHN24X.FNT and JPNZN24X.FNT.
 	
 	MS-DOS 6.2/V doesn't have a 24-pixel font. It is included in the MS-DOS 6.2/V Supplemental Disk that was sold directly from Microsoft Japan.
+	If you use the font ROM file, you don't have to prepare FONTX2 files.
 
 Open dosbox.conf, and set "machine=svga_ps55" and paths for font files in [dosbox] section.
 
@@ -74,7 +75,7 @@ Q. I created font files from DOS/V. How do I remove space between line-drawing c
 A. You can't. The 24-pixel SBCS font of DOS/V have 12 x 24 pixel font while PS/55 renders characters in a box of 13 x 29 pixels. However, if you have DOS K3.x, use $SYSHN24.FNT in the DOS disk instead of JPNHN24X.FNT to fix it.
 
 Q. The emulator shuts down when booting DOS K3.x.
-A. You need disable $BANK386.SYS in CONFIG.SYS.
+A. You need disable $BANK386.SYS device driver in CONFIG.SYS.
 
 Q. Booting DOS K3.3 from a hard drive image causes a hang.
 A. The number of Sectors per Track is too large. This causes the segment overflow during the bootloader loads IBMBIO.COM into the memory. Try a different CHS parameter to the IMGMOUNT command.
@@ -107,7 +108,7 @@ Q. Can this emulator run Windows 3.x?
 A. No. Windows uses a graphics mode, but the emulator doesn't support it
 
 Q. Can this emulator run OS/2 J1.x?
-A. I don't have it, so I don't know.
+A. Maybe not. DOSBox doesn't emulate the drive controller and the 286 protected mode, so it cannot run OS/2.
 
 Q. Can this emulator run this software?
 A. I don't know. Try it!
