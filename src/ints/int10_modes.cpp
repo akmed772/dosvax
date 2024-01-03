@@ -536,11 +536,11 @@ static void FinishSetMode(bool clearmem) {
 			}
 			break;
 		case M_PS55_TEXT: {//for PS/55
-			Bit16u seg = 0xe000;
+			Bit16u seg = 0xe000;//E0000-E1FFFh (for 2 KB)
 			if(CurMode->mode == 0x08)
-				for (Bit16u ct = 0; ct < 16 * 1024; ct++) real_writew(seg, ct * 2, 0x0020);//No attr
+				for (Bit16u ct = 0; ct < 2 * 1024; ct++) real_writew(seg, ct * 2, 0x0020);//No attr
 			else
-				for (Bit16u ct = 0; ct < 16 * 1024; ct++) real_writew(seg, ct * 2, 0x8020);//Green
+				for (Bit16u ct = 0; ct < 2 * 1024; ct++) real_writew(seg, ct * 2, 0x8020);//Green
 			break;
 		}
 		case M_PS55_M3TEXT:
