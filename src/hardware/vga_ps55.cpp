@@ -28,6 +28,7 @@ Note:
 
 PS55Registers ps55;
 MCARegisters mca;
+extern VGA_Type vga;//vga.cpp
 
 extern Bitu vga_read_p3da(Bitu port, Bitu iolen);
 
@@ -50,10 +51,15 @@ extern void write_p3c5(Bitu /*port*/, Bitu val, Bitu iolen);
 
 
 void PS55_GC_Index_Write(Bitu port, Bitu val, Bitu len);
+void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len);
+
+void PS55_GCR_Write(Bitu val);
 
 void EnableGaijiRAMHandler();
 
 void DisableGaijiRAMHandler();
+
+void PS55_WritePlaneDataWithBitmask(const Bitu destvmemaddr, const Bit16u mask, VGA_Latch srclatch1, VGA_Latch srclatch2);
 
 //#define VGA_PAGES		(128/4)
 #define VGA_PAGE_A0		(0xA0000/4096)
@@ -98,6 +104,7 @@ public:
 			return ps55font_24[addr];
 			break;
 		default:
+			LOG_MSG("PS55_MemHnd: Read from mem %x, bank %x, addr %x", ps55.mem_select, ps55.mem_bank, addr);
 			return 0xff;//invalid memory access
 			break;
 		}
@@ -118,18 +125,23 @@ public:
 			addr += index * 0x40;
 		}
 		switch (ps55.mem_select) {
-		case 0xb0://Gaiji RAM
+		case 0xb0://Gaiji RAM 1011 0000
 			//LOG_MSG("PS55_MemHnd_G: Write to mem %x, chr %x (%x), val %x", ps55.mem_select, addr / 128, addr, val);
 			addr &= 0x3FFFF;//safety access
 			ps55.gaiji_ram[addr] = val;
 			break;
-		case 0x10://Font ROM
+		case 0x10://Font ROM  0001 0000
 			//LOG_MSG("PS55_MemHnd: Attempted to write Font ROM!!!");
 			//LOG_MSG("PS55_MemHnd_F: Failure to write to mem %x, addr %x, val %x", ps55.mem_select, addr, val);
 			//Read-Only
 			break;
+		case 0x00:
+			if (addr >= PS55_BITBLT_MEMSIZE) return;
+			ps55.bitblt_ram[addr] = val;
+			break;
 		default:
-			LOG_MSG("PS55_MemHnd_F: Default passed!!!");
+			//LOG_MSG("PS55_MemHnd_F: Default passed!!!");
+			LOG_MSG("PS55_MemHnd: Failure to write to mem %x, addr %x, val %x", ps55.mem_select, addr, val);
 			break;
 		}
 	}
@@ -156,10 +168,38 @@ public:
 
 PS55_Memory_Handler ps55mem_handler;
 
+//MicroChannel NVRAM Index LSB (Hex 0074)
+void write_p74(Bitu port, Bitu val, Bitu len) {
+#ifdef _DEBUG
+	LOG_MSG("MCA_p74: Write to port %x, val %x, len %x", port, val, len);
+#endif
+	mca.idx_nvram = val;
+}
+
+//MicroChannel NVRAM Data (Hex 0076)
+Bitu read_p76(Bitu port, Bitu len) {
+	Bitu ret = 0xff;
+#ifdef _DEBUG
+	LOG_MSG("MCA_p76: Read from port %x, len %x", port, len);
+#endif
+	switch (mca.idx_nvram) {
+	case 0x0://
+		ret = 0xfe;
+		break;
+	case 0x1://
+		ret = 0xef;
+		break;
+	default:
+		break;
+	}
+	return ret;
+}
 //I/O Card Selected Feedback Register (Hex 0091) : Unused
 //I/O System Board Enable/Setup Regiseter (Hex 0094)
 void write_p94(Bitu port, Bitu val, Bitu len) {
-	//LOG_MSG("MCA_p94: Write to port %x, val %x, len %x", port, val, len);
+#ifdef _DEBUG
+	LOG_MSG("MCA_p94: Write to port %x, val %x, len %x", port, val, len);
+#endif
 	if (val & 0x80)//Bit 7: Enable/-Setup System Board Functions
 	{
 		mca.mothersetupen = false;
@@ -185,7 +225,9 @@ Bitu read_p94(Bitu port, Bitu len) {
 
 //I/O Adapter Enable/Setup Register (Hex 0096)
 void write_p96(Bitu port, Bitu val, Bitu len) {
-	//LOG_MSG("MCA_p96: Write to port %x, val %x, len %x", port, val, len);
+#ifdef _DEBUG
+	LOG_MSG("MCA_p96: Write to port %x, val %x, len %x", port, val, len);
+#endif
 	if (val & 0x08)//Bit 3: Card Setup Enable
 	{
 		mca.cardsetupen = true;
@@ -252,7 +294,9 @@ POS Address Map (see IBM PS/55 Model 5550-S/T/V Technical Reference ISBN4-274-07
    107h: POS Register 7 - Subaddress Extension (High Byte)
 */
 void MCA_Card_Reg_Write(Bitu port, Bitu val, Bitu len) {
-	//LOG_MSG("MCA_p10x: Write to port %x, val %x, len %x", port, val, len);
+#ifdef C_HEAVY_DEBUG
+	LOG_MSG("MCA_p10x: Write to port %x, val %x, len %x", port, val, len);
+#endif
 	if (mca.vgasetupen) {//I/O 94h bit 5 is on
 		switch (port) {
 		case 0x102://POS Register 2 (Hex 102)
@@ -341,7 +385,9 @@ Bitu MCA_Card_Reg_Read(Bitu port, Bitu len) {
 			break;
 		}
 	}
-	//LOG_MSG("MCA_p10x: Read from port %x, len %x, ret %x", port, len, ret);
+#ifdef C_HEAVY_DEBUG
+	LOG_MSG("MCA_p10x: Read from port %x, len %x, ret %x", port, len, ret);
+#endif
 	return ret;
 }
 #ifdef _DEBUG
@@ -365,11 +411,360 @@ void EnableGaijiRAMHandler()
 		//LOG_MSG("PS55_MemHnd: Setup page handler %X" , GAIJI_RAMBASE + j);
 	}
 	PAGING_ClearTLB();
-	//LOG_MSG("PS55_MemHnd: Setup page handlers");
+	LOG_MSG("PS55_MemHnd: Setup page handlers");
 }
+Bit8u PS55_BitRRotate(Bit8u n, Bit8s d)
+{
+	/* In n<<d, last d bits are 0. To put first 3 bits of n
+	   at last, do bitwise or of n<<d with n >>(INT_BITS -
+	   d) */
+	if(d >= 0)
+		return (n >> d) | (n << (8 - d));
+	else
+		return (n << -d) | (n >> (8 + d));
+}
+
+void PS55_UpdatePixel(const Bitu start, const VGA_Latch pixels) {
+	Bit8u* write_pixels = &vga.fastmem[start << 3];
+	Bit32u colors0_3, colors4_7;
+	VGA_Latch temp; temp.d = (pixels.d >> 4) & 0x0f0f0f0f;
+	colors0_3 =
+		Expand16Table[0][temp.b[0]] |
+		Expand16Table[1][temp.b[1]] |
+		Expand16Table[2][temp.b[2]] |
+		Expand16Table[3][temp.b[3]];
+	*(Bit32u*)write_pixels = colors0_3;
+	temp.d = pixels.d & 0x0f0f0f0f;
+	colors4_7 =
+		Expand16Table[0][temp.b[0]] |
+		Expand16Table[1][temp.b[1]] |
+		Expand16Table[2][temp.b[2]] |
+		Expand16Table[3][temp.b[3]];
+	*(Bit32u*)(write_pixels + 4) = colors4_7;
+}
+
+typedef union {
+	Bit32u d;
+	Bit8u b[4];
+} PS55_VidSeq32;
+
+//void PS55_WritePlaneDataWithBitmask(const Bitu destvmemaddr, const Bit8u color, const Bit8u mask)
+//{
+//	// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
+//	VGA_Latch srclatch, destlatch;
+//	if (destvmemaddr >= vga.vmemsize) return;
+//	srclatch.d = 0;
+//	destlatch.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
+//	for (int i = 0; i < 4; i++)
+//	{
+//		destlatch.b[i] &= ~mask;
+//		if (color >> i & 1) srclatch.b[i] = 0xff;
+//		srclatch.b[i] &= mask;
+//		destlatch.b[i] |= srclatch.b[i];
+//	}
+//	((Bit32u*)vga.mem.linear)[destvmemaddr] = destlatch.d;
+//	PS55_UpdatePixel(destvmemaddr, destlatch);
+//}
+void PS55_WritePlaneDataWithBitmask(const Bitu destvmemaddr, const Bit16u mask, VGA_Latch srclatch1, VGA_Latch srclatch2)
+{
+	VGA_Latch destlatch1, destlatch2, destlatch3;
+	destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
+	//destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 1];
+	destlatch3.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 2];
+
+	// 5 bits shift write to right
+	//           | 1000 0001  | 1010 0101 |
+	//           | xxxx x100  | 0000 1101 | 0010 1xxx |
+	// 9 bits shift write to right
+	//           | 1000 0001  | 
+	//           | xxxx xxxx  | x100 0000 | 1xxx xxxx |
+	// 9 bits shift write to right
+	//           | 1000 0001  | 1010 0101 |
+	//           | xxxx xxxx  | x1000 000 | 1101 0010 | 1xxx xxxx
+	Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr;
+	//Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr % 8;
+	PS55_VidSeq32 mask32; mask32.d = (Bit32u)mask;//[3]0x00 [2]0x00 [1]0xFF [0]0x3F (mask is 00111111 11111111, but byte order is opposite)
+	PS55_VidSeq32 masksh32; masksh32.d = 0xffff0000;
+	mask32.b[3] = mask32.b[0];
+	mask32.b[2] = mask32.b[1];
+	mask32.d &= 0xffff0000;
+	mask32.d = 0xffffffff;
+	//mask32.d <<= (16 - bitshiftin_destr);
+	//mask32.d >>= bitshiftin_destr;
+	//masksh32.d >>= bitshiftin_destr;
+	//mask32.d &= masksh32.d;
+	//PS55_VidSeq32 mask32; mask32.d = (Bit32u)mask << (16);
+	for (int i = 0; i < 4; i++)
+	{
+		// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
+		//srclatch1.b[i] &= masksrc1;
+		//srclatch2.b[i] &= masksrc2;
+		PS55_VidSeq32 srctemp32; srctemp32.d = 0;
+		srctemp32.b[3] = srclatch1.b[i];
+		srctemp32.b[2] = srclatch2.b[i];
+		//Bit16u srctemp16 = ((Bit16u)(srclatch1.b[i]) << 8) | srclatch2.b[i];
+		//srctemp32.d >>= bitshiftin_destr;
+		//srctemp32.d &= mask32.d;
+		//if(srctemp16 > 0xff) LOG_MSG("srctemp16: %x", srctemp16);
+		switch (ps55.bitblt.raster_op) {
+		case 0x00:	/* None */
+					//return (input & mask) | (vga.latch.d & ~mask);
+			//destlatch1.b[i] &= ~masksh32.b[3];
+			//destlatch2.b[i] &= ~masksh32.b[2];
+			//destlatch3.b[i] &= ~masksh32.b[1];
+			destlatch1.b[i] &= ~mask32.b[3];
+			destlatch2.b[i] &= ~mask32.b[2];
+			destlatch3.b[i] &= ~mask32.b[1];
+			destlatch1.b[i] |= srctemp32.b[3] & mask32.b[3];
+			destlatch2.b[i] |= srctemp32.b[2] & mask32.b[2];
+			destlatch3.b[i] |= srctemp32.b[1] & mask32.b[1];
+			break;
+		case 0x01:	/* AND */
+					//return (input | ~mask) & vga.latch.d;
+			destlatch1.b[i] &= srctemp32.b[3] | ~mask32.b[3];
+			destlatch2.b[i] &= srctemp32.b[2] | ~mask32.b[2];
+			destlatch3.b[i] &= srctemp32.b[1] | ~mask32.b[1];
+			break;
+		case 0x02:	/* OR */
+					//return (input & mask) | vga.latch.d;
+			destlatch1.b[i] |= srctemp32.b[3] & mask32.b[3];
+			destlatch2.b[i] |= srctemp32.b[2] & mask32.b[2];
+			destlatch3.b[i] |= srctemp32.b[1] & mask32.b[1];
+			break;
+		case 0x03:	/* XOR */
+					//return (input & mask) ^ vga.latch.d;
+			destlatch1.b[i] ^= srctemp32.b[3] & mask32.b[3];
+			destlatch2.b[i] ^= srctemp32.b[2] & mask32.b[2];
+			destlatch3.b[i] ^= srctemp32.b[1] & mask32.b[1];
+			break;
+		}
+	}
+	((Bit32u*)vga.mem.linear)[destvmemaddr] = destlatch1.d;
+	PS55_UpdatePixel(destvmemaddr, destlatch1);
+	//((Bit32u*)vga.mem.linear)[destvmemaddr + 1] = destlatch2.d;
+	//PS55_UpdatePixel(destvmemaddr + 1, destlatch2);
+	((Bit32u*)vga.mem.linear)[destvmemaddr + 2] = destlatch3.d;
+	PS55_UpdatePixel(destvmemaddr + 2, destlatch3);
+}
+void PS55_DrawColorWithBitmask(Bitu destvmemaddr, const Bit8u color, Bit16u mask)
+{
+	//VGA_Latch srclatch1, srclatch2, destlatch1, destlatch2;
+	VGA_Latch srclatch1, srclatch2;
+	if (ps55.bitblt.bitshift_destr == 0) destvmemaddr += 2;
+	//Bit8s bitshiftin_srcr = ps55.bitblt.bitshift_srcr % 8;
+	//Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr % 8;
+	//if (destvmemaddr + 1 >= vga.vmemsize) return;
+	srclatch1.d = FillTable[color & 0x0f];
+	srclatch2.d = FillTable[color & 0x0f];
+	//destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
+	//destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 1];
+
+	//mask = PS55_BitRRotate(mask, bitshiftin_destr);
+	//Bit8u masksrc1 = ~(0xff << (8 - bitshiftin_srcr));//0001 1111
+	//Bit8u masksrc2 = ~(0xff >> bitshiftin_srcr);//1110 0000
+	//Bit8u maskdest1 = (~(0xff << (8 - bitshiftin_destr)) & mask);//0000 0111 (when mask = FF)
+	//Bit8u maskdest2 = (~(0xff >> bitshiftin_destr) & mask);//1111 1000
+	PS55_WritePlaneDataWithBitmask(destvmemaddr, mask, srclatch1, srclatch2);
+
+	//for (int i = 0; i < 4; i++)
+	//{
+	//	// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
+	//	srclatch1.b[i] &= masksrc1;
+	//	srclatch2.b[i] &= masksrc2;
+	//	Bit16u srctemp16 = ((Bit16u)(srclatch1.b[i]) << 8) | srclatch2.b[i];
+	//	srctemp16 >>= bitshiftin_destr;
+	//	switch (ps55.bitblt.raster_op) {
+	//	case 0x00:	/* None */
+	//		//return (input & mask) | (vga.latch.d & ~mask);
+	//		destlatch1.b[i] &= ~maskdest1;
+	//		destlatch2.b[i] &= ~maskdest2;
+	//		destlatch1.b[i] |= (srctemp16 >> 8) & maskdest1;
+	//		destlatch2.b[i] |= srctemp16 & maskdest2;
+	//		break;
+	//	case 0x01:	/* AND */
+	//		//return (input | ~mask) & vga.latch.d;
+	//		destlatch1.b[i] &= (srctemp16 >> 8) | ~maskdest1;
+	//		destlatch2.b[i] &= srctemp16 | ~maskdest2;
+	//		break;
+	//	case 0x02:	/* OR */
+	//		//return (input & mask) | vga.latch.d;
+	//		destlatch1.b[i] |= (srctemp16 >> 8) & maskdest1;
+	//		destlatch2.b[i] |= srctemp16 & maskdest2;
+	//		break;
+	//	case 0x03:	/* XOR */
+	//		//return (input & mask) ^ vga.latch.d;
+	//		destlatch1.b[i] ^= (srctemp16 >> 8) & maskdest1;
+	//		destlatch2.b[i] ^= srctemp16 & maskdest2;
+	//		break;
+	//	}
+
+	//}
+	//((Bit32u*)vga.mem.linear)[destvmemaddr] = destlatch1.d;
+	//PS55_UpdatePixel(destvmemaddr, destlatch1);
+	//((Bit32u*)vga.mem.linear)[destvmemaddr + 1] = destlatch2.d;
+	//PS55_UpdatePixel(destvmemaddr + 1, destlatch2);
+}
+void PS55_CopyPlaneDataWithBitmask(Bitu srcvmemaddr, Bitu destvmemaddr, Bit16u mask)
+{
+	// 2 bits shift to left
+	//           | 1000 0001  |
+	// xxxx xx10 | 00 0001 xx |
+	// 2 bits shift to right
+	//           | 1000 0001  |
+	//           | xx 1000 00 | 01xx xxxx
+	// 5 bits shift write to right
+	//           | 1000 0001  | 1010 0101 |
+	//           | xxxx x100  | 0000 1101 | 0010 1xxx |
+	// 9 bits shift write to right
+	//           | 1000 0001  | 
+	//           | xxxx xxxx  | x100 0000 | 1xxx xxxx |
+	// 9 bits shift write to right
+	//           | 1000 0001  | 1010 0101 |
+	//           | xxxx xxxx  | x1000 000 | 1101 0010 | 1xxx xxxx
+	//VGA_Latch srclatch1, srclatch2, destlatch1, destlatch2;
+
+	//if (ps55.bitblt.bitshift_destr == 0) destvmemaddr += 2;
+	////srcvmemaddr += ps55.bitblt.bitshift_srcr / 8;
+	////Bit8s bitshiftin_srcr = ps55.bitblt.bitshift_srcr % 8;
+	////destvmemaddr += ps55.bitblt.bitshift_destr / 8;
+	//Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr % 8;
+
+	//if (srcvmemaddr + 1 >= vga.vmemsize) return;
+	//if (destvmemaddr + 1 >= vga.vmemsize) return;
+
+	//srclatch1.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr];
+	//srclatch2.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 1];
+	//destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
+	//destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 1];
+	// ff mask  = 1111 1111
+	// mask     = 0111 1110
+	// 3 bit right ->
+	// rol mask = 1100 1111
+	// ff dest  = 0001 1111 1110 0000
+	// destmask = 0000 1111 1100 0000
+	//Bit8u masksrc1 = 0xff;
+	//Bit8u masksrc1 = 0xff;
+	//Bit8u masksrc2 = 0x00;
+	// Draft case 1
+	//mask = PS55_BitRRotate(mask, bitshiftin_destr);
+	//Bit8u maskrange1 = ~(0xff << (8 - bitshiftin_destr));//0001 1111
+	//Bit8u maskrange2 = ~(0xff >> bitshiftin_destr);//1110 0000
+	//Bit8u maskin1 = mask & maskrange1;//1100 1111 & 0001 1111
+	//Bit8u maskin2 = mask & maskrange2;//1100 1111 & 1110 0000
+	////if (destvmemaddr < 0x82) {
+	////	LOG_MSG("destvmemaddr:%08x mask: %02x", destvmemaddr, mask);
+	////	LOG_MSG("srclatch_d:  %08x %08x\tmasksrc_:  %02x %02x", srclatch1.d, srclatch2.d, masksrc1, masksrc2);
+	////	LOG_MSG("destlatch_d: %08x %08x\tmaskdest_: %02x %02x", destlatch1.d, destlatch2.d, maskdest1, maskdest2);
+	////}
+	////ps55.bitblt.raster_op = 1;
+	//for (int i = 0; i < 4; i++)
+	//{
+	//	// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
+	//	//srclatch1.b[i] &= masksrc1;
+	//	//srclatch2.b[i] &= masksrc2;
+	//	Bit16u srctemp16 = ((Bit16u)(srclatch1.b[i]) << 8) | srclatch2.b[i];
+	//	srctemp16 >>= bitshiftin_destr;
+	//	//if(srctemp16 > 0xff) LOG_MSG("srctemp16: %x", srctemp16);
+	//	switch (ps55.bitblt.raster_op) {
+	//	case 0x00:	/* None */
+	//		//return (input & mask) | (vga.latch.d & ~mask);
+	//		destlatch1.b[i] &= ~maskin1;
+	//		destlatch2.b[i] &= ~maskin2;
+	//		destlatch1.b[i] |= (srctemp16 >> 8) & maskin1;
+	//		destlatch2.b[i] |= srctemp16 & maskin2;
+	//		break;
+	//	case 0x01:	/* AND */
+	//		//return (input | ~mask) & vga.latch.d;
+	//		destlatch1.b[i] &= (srctemp16 >> 8) | ~maskin1;
+	//		destlatch2.b[i] &= srctemp16 | ~maskin2;
+	//		break;
+	//	case 0x02:	/* OR */
+	//		//return (input & mask) | vga.latch.d;
+	//		destlatch1.b[i] |= (srctemp16 >> 8) & maskin1;
+	//		destlatch2.b[i] |= srctemp16 & maskin2;
+	//		break;
+	//	case 0x03:	/* XOR */
+	//		//return (input & mask) ^ vga.latch.d;
+	//		destlatch1.b[i] ^= (srctemp16 >> 8) & maskin1;
+	//		destlatch2.b[i] ^= srctemp16 & maskin2;
+	//		break;
+	//	}
+	//}
+	//draft case 2
+	//mask = PS55_BitRRotate(mask, bitshiftin_destr);
+	//Bit8u maskrange1 = ~(0xff << (8 - bitshiftin_destr));//0001 1111
+	//Bit8u maskrange2 = ~(0xff >> bitshiftin_destr);//1110 0000
+	//Bit8u maskin1 = mask ;//1100 1111 & 0001 1111
+	//Bit8u maskin2 = mask ;//1100 1111 & 1110 0000
+	//if (destvmemaddr < 0x82) {
+	//	LOG_MSG("destvmemaddr:%08x mask: %02x", destvmemaddr, mask);
+	//	LOG_MSG("srclatch_d:  %08x %08x\tmasksrc_:  %02x %02x", srclatch1.d, srclatch2.d, masksrc1, masksrc2);
+	//	LOG_MSG("destlatch_d: %08x %08x\tmaskdest_: %02x %02x", destlatch1.d, destlatch2.d, maskdest1, maskdest2);
+	//}
+	//ps55.bitblt.raster_op = 1;
+	VGA_Latch srclatch1, srclatch2;
+	//destvmemaddr--;
+	if (ps55.bitblt.bitshift_destr == 0) destvmemaddr += 2;
+	//srcvmemaddr += ps55.bitblt.bitshift_srcr / 8;
+	//Bit8s bitshiftin_srcr = ps55.bitblt.bitshift_srcr % 8;
+	//destvmemaddr += ps55.bitblt.bitshift_destr / 8;
+	mask = 0xffff;//debug
+
+	if (srcvmemaddr + 1 >= vga.vmemsize) return;
+	if (destvmemaddr + 1 >= vga.vmemsize) return;
+
+	srclatch1.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr];
+	srclatch2.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 1];
+
+	PS55_WritePlaneDataWithBitmask(destvmemaddr, mask, srclatch1, srclatch2);
+}
+//void PS55_CopyPlaneDataWithBitmask8(const Bitu srcvmemaddr, const Bitu destvmemaddr, Bit8u mask)
+//{
+//	// 2 bits shift to left
+//	//           | 1000 0001  |
+//	// xxxx xx10 | 00 0001 xx |
+//	// 2 bits shift to right
+//	//           | 1000 0001  |
+//	//           | xx 1000 00 | 01xx xxxx
+//	// 3 bits shift latch from right and 5 bits shift write to right
+//	//           | xxx1 0000 | 001x xxxx |
+//	//           | xxxx x100 | 00 001xxx | 
+//	VGA_Latch srclatch1, srclatch2, destlatch1, destlatch2;
+//	if (srcvmemaddr >= vga.vmemsize) return;
+//	if (destvmemaddr >= vga.vmemsize) return;
+//	srclatch1.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr];
+//	srclatch2.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 1];
+//	destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
+//	destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 2];
+//
+//	ps55.bitblt.bitshift_destr;
+//	mask = PS55_BitRRotate(mask, ps55.bitblt.bitshift_destr);
+//	Bit8u masksrc1 = ~(0xff << (8 - ps55.bitblt.bitshift_srcr));//0001 1111
+//	Bit8u masksrc2 = ~(0xff >> ps55.bitblt.bitshift_srcr);//1110 0000
+//	Bit8u maskdest1 = (~(0xff << (8 - ps55.bitblt.bitshift_destr)) & mask);//0000 0111 (when mask = FF)
+//	Bit8u maskdest2 = (~(0xff >> ps55.bitblt.bitshift_destr) & mask);//1111 1000
+//
+//	for (int i = 0; i < 4; i++)
+//	{
+//		srclatch1.b[i] &= masksrc1;
+//		srclatch2.b[i] &= masksrc2;
+//		Bit16u srctemp16 = ((Bit16u)srclatch1.b[i] << 8) | srclatch2.b[i];
+//		srctemp16 >>= ps55.bitblt.bitshift_destr - ps55.bitblt.bitshift_srcr;
+//
+//		destlatch1.b[i] &= ~maskdest1;
+//		destlatch2.b[i] &= ~maskdest2;
+//		destlatch1.b[i] |= srctemp16 >> 8;
+//		destlatch2.b[i] |= srctemp16 & 0xff;
+//
+//	}
+//	((Bit32u*)vga.mem.linear)[destvmemaddr] = destlatch1.d;
+//	PS55_UpdatePixel(destvmemaddr, destlatch1);
+//	((Bit32u*)vga.mem.linear)[destvmemaddr + 1] = destlatch2.d;
+//	PS55_UpdatePixel(destvmemaddr + 1, destlatch2);
+//}
 void DisableGaijiRAMHandler()
 {
-	//LOG_MSG("PS55_MemHnd: Page handler is restoring.");
+	LOG_MSG("PS55_MemHnd: Page handler is restoring.");
 	//restore pagehandlers
 	for (Bitu j = 0; j < 32; j++)
 	{
@@ -384,6 +779,313 @@ void DisableGaijiRAMHandler()
 		}
 	}
 	PAGING_ClearTLB();
+#ifdef _DEBUG//for PS/55 DA BitBLT operations
+	Bitu value32;
+	if (ps55.mem_select == 0)
+	{
+		LOG_MSG("Line Length: %d %d\n", vga.draw.address_add, vga.config.scan_len);
+		LOG_MSG("BitBlt memory:\n");
+		//for (int j = 0; j < PS55_BITBLT_MEMSIZE / 8; j++)
+		//{
+		//	int i = j * 8;
+		//	LOG_MSG("%02x %02x %02x %02x %02x %02x %02x %02x ", ps55.bitblt_ram[i], ps55.bitblt_ram[i+1], ps55.bitblt_ram[i+2], ps55.bitblt_ram[i+3], 
+		//		ps55.bitblt_ram[i+4], ps55.bitblt_ram[i+5], ps55.bitblt_ram[i+6], ps55.bitblt_ram[i+7]);
+		//}
+		int i = 0;
+		int j = 0;
+		while (i < PS55_BITBLT_MEMSIZE)
+		{
+			switch (ps55.bitblt_ram[i]) {
+			case 0x88:
+			case 0x89:
+			case 0x95:
+				value32 = ps55.bitblt_ram[i + 3];
+				value32 <<= 8;
+				value32 |= ps55.bitblt_ram[i + 2];
+				//LOG_MSG("[%02x] %02x: %04x (%d)", ps55.bitblt_ram[i], ps55.bitblt_ram[i + 1], value32, value32);
+				ps55.bitblt_reg[ps55.bitblt_ram[i + 1]] = value32;
+				i += 3;
+				break;
+			case 0x91:
+				value32 = ps55.bitblt_ram[i + 5];
+				value32 <<= 8;
+				value32 |= ps55.bitblt_ram[i + 4];
+				value32 <<= 8;
+				value32 |= ps55.bitblt_ram[i + 3];
+				value32 <<= 8;
+				value32 |= ps55.bitblt_ram[i + 2];
+				//LOG_MSG("[%02x] %02x: %08x (%d)", ps55.bitblt_ram[i], ps55.bitblt_ram[i + 1], value32, value32);
+				ps55.bitblt_reg[ps55.bitblt_ram[i + 1]] = value32;
+				i += 5;
+				break;
+			case 0x99:
+				LOG_MSG("[%02x] %02x: %02x %02x %02x %02x %02x %02x", ps55.bitblt_ram[i], ps55.bitblt_ram[i + 1], ps55.bitblt_ram[i + 2], ps55.bitblt_ram[i + 3],
+					ps55.bitblt_ram[i + 4], ps55.bitblt_ram[i + 5], ps55.bitblt_ram[i + 6], ps55.bitblt_ram[i + 7]);
+				i += 7;
+				break;
+			case 0x00:
+				break;
+			default:
+				LOG_MSG("PS55_ParseBLT: Unknown PreOP!");
+				break;
+			}
+			i++;
+		}
+		//[89] 20: 0001 (1) then execute payload and clear it
+		if (ps55.bitblt_reg[0x20] & 0x1)
+		{
+			//begin for debug
+			for (i = 0; i < 0x3f; i++) {
+				//if(ps55.bitblt_reg[i] != 0xfefe && ps55.bitblt_reg[i] != 0xfefefefe) LOG_MSG("%02x: %04x (%d)",i, ps55.bitblt_reg[i], ps55.bitblt_reg[i]);
+			}
+			for (i = 0; i < 0x3f; i++) {
+				ps55.debug_bitblt_reg[ps55.debug_bitblt_reg_ip][i] = ps55.bitblt_reg[i];
+			}
+			ps55.debug_bitblt_reg_ip++;
+			//end for debug
+			
+			////Initialize GC registers
+			////Bitu destaddr =  ps55.bitblt_reg[0x29];
+			PS55_GC_Index_Write(0x3ea, 0x05, 1);
+			PS55_GCR_Write(0x40);//05 Graphics mode
+			PS55_GC_Index_Write(0x3ea, 0x00, 1);
+			//PS55_GCR_Write(ps55.bitblt_reg[0x0] & 0x0f);//00 Set/Reset (set data with ff/00h)
+			//PS55_GCR_Write(0x05);//00 Set/Reset
+			PS55_GCR_Write(0x00);  //00 Set/Reset
+			PS55_GC_Index_Write(0x3ea, 0x01, 1);
+			PS55_GCR_Write(0x00);//01 Enable Set/Reset (set color but 8-bit width)
+			PS55_GC_Index_Write(0x3ea, 0x03, 1);
+			PS55_GCR_Write(0x00);//03 Data Rotate
+			PS55_GC_Index_Write(0x3ea, 0x08, 1);
+			PS55_GCR_Write(0xff);//08 Bit Mask Low
+			PS55_GC_Index_Write(0x3ea, 0x09, 1);
+			PS55_GCR_Write(0xff);//09 Bit Mask High
+			PS55_GC_Index_Write(0x3ea, 0x0a, 1);
+			PS55_GCR_Write(0x0f);//0a Map Mask (set color)
+			//ps55.bitblt.bitshift_srcr = 0;
+			//ps55.bitblt.bitshift_srcr = ((ps55.bitblt_reg[0x3] >> 4) & 0xf);//set bit shift
+			//ps55.bitblt.bitshift_destr = 0;
+			ps55.bitblt.bitshift_destr = ((ps55.bitblt_reg[0x3] >> 4) & 0xf);//set bit shift
+			//ps55.bitblt.bitshift_destr = 0;
+			ps55.bitblt.raster_op = ps55.bitblt_reg[0x0b] & 0x03;//01 AND, 03 XOR
+			ps55.bitblt.raster_op = 0;
+			LOG_MSG("bitblt bitshift: %02x", ps55.bitblt.bitshift_destr);
+			//if (ps55.bitblt_reg[0x21] != 0x7a)
+			if (ps55.bitblt_reg[0xb] != 0x209
+)
+				;
+			else
+			if (ps55.bitblt_reg[0x5] == 0x48) {//Fill a rectangle (or draw a line)
+				Bitu destaddr_begin = ps55.bitblt_reg[0x29];
+				for (Bitu y = 0; y < ps55.bitblt_reg[0x35]; y++)
+				{
+					for (Bitu x = 0; x < ps55.bitblt_reg[0x33]; x++)
+					{
+						Bitu destaddr_now = destaddr_begin + x * 2 + y * vga.config.scan_len * 2;
+						////if (ps55.bitblt_reg[0x21] & 0x10) destaddr_now--;
+						////Clear masked vmem data
+						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
+						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
+						////vga.config.raster_op = 1;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
+						//if (x == 0) {
+						//	vga.config.raster_op = 1;//AND
+						//	mem_readb(destaddr_now + 0);
+						//	mem_writeb(destaddr_now + 0, ~(ps55.bitblt_reg[0x8] & 0xff));
+						//	mem_readb(destaddr_now + 1);
+						//	mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x8] >> 8));
+						//}
+						//else if (x == ps55.bitblt_reg[0x33] - 1) {
+						//	vga.config.raster_op = 1;//AND
+						//	mem_readb(destaddr_now + 0);
+						//	mem_writeb(destaddr_now + 0, ~ps55.bitblt_reg[0x9] & 0xff);
+						//	mem_readb(destaddr_now + 1);
+						//	mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x9] >> 8));
+						//}
+						//else {
+						//	vga.config.raster_op = 1;//Without ROP
+						//	mem_readb(destaddr_now + 0);
+						//	mem_writeb(destaddr_now + 0, 0x00);
+						//	mem_readb(destaddr_now + 1);
+						//	mem_writeb(destaddr_now + 1, 0x00);
+						//}
+						////Set color
+						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
+						//PS55_GCR_Write(ps55.bitblt_reg[0x0] & 0x0f);//0a Map Mask (set color)
+						//Transfer masked bitmap data to vmem
+						//vga.config.raster_op = 2;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
+						if (x == 0) {
+							//mem_readb(destaddr_now + 0);
+							//mem_writeb(destaddr_now + 0, ps55.bitblt_reg[0x8] & 0xff);
+							//mem_readb(destaddr_now + 1);
+							//mem_writeb(destaddr_now + 1, (ps55.bitblt_reg[0x8] >> 8));
+							//PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x8] & 0xff);
+							PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x8]);
+							//PS55_DrawColorWithBitmask(destaddr_now + 1, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x8] >> 8);
+						}
+						else if (x == ps55.bitblt_reg[0x33] - 1) {
+							//mem_readb(destaddr_now + 0);
+							//mem_writeb(destaddr_now + 0, ps55.bitblt_reg[0x9] & 0xff);
+							//mem_readb(destaddr_now + 1);
+							//mem_writeb(destaddr_now + 1, (ps55.bitblt_reg[0x9] >> 8));
+							//PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x9] & 0xff);
+							PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x9]);
+							//PS55_DrawColorWithBitmask(destaddr_now + 1, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x9] >> 8);
+						}
+						else {
+							//mem_readb(destaddr_now + 0);
+							//mem_writeb(destaddr_now + 0, 0xff);
+							//mem_readb(destaddr_now + 1);
+							//mem_writeb(destaddr_now + 1, 0xff);
+							//PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, 0xff);
+							PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, 0xffff);
+							//PS55_DrawColorWithBitmask(destaddr_now + 1, ps55.bitblt_reg[0x0] & 0x0f, 0xff);
+						}
+						//vga.config.raster_op = 0;
+						//if (GCC_UNLIKELY(destaddr + x + y * 0x82 >= vga.vmemsize)) break;//safety
+						//vga.mem.linear[destaddr + x * 2 + y * 0x82] = 0xcc;
+						//vga.mem.linear[destaddr + x * 2 + 1 + y * 0x82] = 0xcc;
+						//LOG_MSG("%02x: %04x", destaddr + x * 2 + y * 0x82, 0x04);
+					}
+				}
+			}
+			else if (ps55.bitblt_reg[0x5] == 0x1048 && ps55.bitblt_reg[0x3D] == 0x40) {//Tiling a rectangle (transfer tile data multiple times)
+				// First and Last: Clear vmem (vmem AND bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
+				// Middle: Copy entire tile data using latch
+				Bitu destaddr_begin = ps55.bitblt_reg[0x29];
+				Bitu tileaddr_begin = ps55.bitblt_reg[0x2B];
+				for (Bitu y = 0; y < ps55.bitblt_reg[0x35]; y++)
+				{
+					for (Bitu x = 0; x < ps55.bitblt_reg[0x33]; x++)
+					{
+						Bitu destaddr_now = destaddr_begin + x * 2 + y * vga.config.scan_len * 2;
+						Bitu tileaddr_now = tileaddr_begin + (x * 2) % ps55.bitblt_reg[0x23] + (y * vga.config.scan_len * 2) % ps55.bitblt_reg[0x28];
+						//if (ps55.bitblt_reg[0x21] & 0x10) destaddr_now--;
+						////Clear masked vmem data
+						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
+						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
+						////vga.config.raster_op = 1;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
+						//vga.config.write_mode = 0;
+						//if (x == 0) {
+						//	vga.config.raster_op = 1;//AND
+						//	mem_readb(destaddr_now + 0);
+						//	mem_writeb(destaddr_now + 0, ~(ps55.bitblt_reg[0x8] & 0xff));
+						//	mem_readb(destaddr_now + 1);
+						//	mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x8] >> 8));
+						//}
+						//else if (x == ps55.bitblt_reg[0x33] - 1) {
+						//	vga.config.raster_op = 1;//AND
+						//	mem_readb(destaddr_now + 0);
+						//	mem_writeb(destaddr_now + 0, ~ps55.bitblt_reg[0x9] & 0xff);
+						//	mem_readb(destaddr_now + 1);
+						//	mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x9] >> 8));
+						//}
+						//else {
+						//	vga.config.raster_op = 0;
+						//	mem_writeb(destaddr_now + 0, 0x00);
+						//	mem_writeb(destaddr_now + 1, 0x00);
+						//}
+						////Enable to access all planes
+						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
+						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
+						//Transfer masked bitmap data to vmem
+						//vga.config.raster_op = 2;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
+						if (x == 0) {
+							//PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, ps55.bitblt_reg[0x8] & 0xff);
+							//PS55_CopyPlaneDataWithBitmask(tileaddr_now + 1, destaddr_now + 1, ps55.bitblt_reg[0x8] >> 8);
+							PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, ps55.bitblt_reg[0x8]);
+						}
+						else if (x == ps55.bitblt_reg[0x33] - 1) {
+							//PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, ps55.bitblt_reg[0x9] & 0xff);
+							//PS55_CopyPlaneDataWithBitmask(tileaddr_now + 1, destaddr_now + 1, ps55.bitblt_reg[0x9] >> 8);
+							PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, ps55.bitblt_reg[0x9]);
+						}
+						else {
+							//vga.config.write_mode = 1;//write latched data (ROP does nothing)
+							//mem_readb(tileaddr_now + 0);
+							//mem_writeb(destaddr_now + 0, 0xff);
+							//mem_readb(tileaddr_now + 1);
+							//mem_writeb(destaddr_now + 1, 0xff);
+							//PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, 0xff);
+							//PS55_CopyPlaneDataWithBitmask(tileaddr_now + 1, destaddr_now + 1, 0xff);
+							PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, 0xffff);
+						}
+					}
+				}
+			}
+			else if (ps55.bitblt_reg[0x5] == 0x1048 && ps55.bitblt_reg[0x3D] == 0x00) {//Block copy 
+				// First and Last: Clear vmem (vmem AND bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
+				// Middle: Copy entire tile data using latch
+				Bitu destaddr_begin = ps55.bitblt_reg[0x29];
+				Bitu srcaddr_begin = ps55.bitblt_reg[0x2A];
+				for (Bitu y = 0; y < ps55.bitblt_reg[0x35]; y++)
+				{
+					for (Bitu x = 0; x < ps55.bitblt_reg[0x33]; x++)
+					{
+						Bitu destaddr_now = destaddr_begin + x * 2 + y * vga.config.scan_len * 2;
+						Bitu srcaddr_now = srcaddr_begin + x * 2 + y * vga.config.scan_len * 2;
+						////if (ps55.bitblt_reg[0x21] & 0x10) destaddr_now--;
+						////Clear masked vmem data
+						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
+						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
+						////vga.config.raster_op = 1;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
+						//vga.config.write_mode = 0;
+						//if (x == 0) {
+						//	vga.config.raster_op = 1;//AND
+						//	//mem_readb(destaddr_now + 0);
+						//	//mem_writeb(destaddr_now + 0, ~(ps55.bitblt_reg[0x8] & 0xff));
+						//	//mem_readb(destaddr_now + 1);
+						//	//mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x8] >> 8));
+						//}
+						//else if (x == ps55.bitblt_reg[0x33] - 1) {
+						//	vga.config.raster_op = 1;//AND
+						//	//mem_readb(destaddr_now + 0);
+						//	//mem_writeb(destaddr_now + 0, ~ps55.bitblt_reg[0x9] & 0xff);
+						//	//mem_readb(destaddr_now + 1);
+						//	//mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x9] >> 8));
+						//}
+						//else {
+						//	vga.config.raster_op = 0;
+						//	//mem_writeb(destaddr_now + 0, 0x00);
+						//	//mem_writeb(destaddr_now + 1, 0x00);
+						//}
+						////Enable to access all planes
+						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
+						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
+						//Transfer masked bitmap data to vmem
+						//vga.config.raster_op = 2;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
+						if (x == 0) {
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x8] & 0xff);
+							PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x8]);
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now + 1, destaddr_now + 1, ps55.bitblt_reg[0x8] >> 8);
+						}
+						else if (x == ps55.bitblt_reg[0x33] - 1) {
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x9] & 0xff);
+							PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x9]);
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now + 1, destaddr_now + 1, ps55.bitblt_reg[0x9] >> 8);
+						}
+						else {
+							//vga.config.write_mode = 1;//write latched data (ROP does nothing)
+							//mem_readb(srcaddr_now + 0);
+							//mem_writeb(destaddr_now + 0, 0xff);
+							//mem_readb(srcaddr_now + 1);
+							//mem_writeb(destaddr_now + 1, 0xff);
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, 0xff);
+							PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, 0xffff);
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now + 1, destaddr_now + 1, 0xff);
+						}
+					}
+				}
+			}
+			//initialize regs with fefefefeh, clear regs with fefeh
+			memset(ps55.bitblt_ram, 0x00, PS55_BITBLT_MEMSIZE);
+			for (i = 0; i < 0x3f; i++) {
+				if (ps55.bitblt_reg[i] != 0xfefefefe) ps55.bitblt_reg[i] = 0xfefe;
+			}
+			//memset(ps55.bitblt_reg, 0xfe, 0x3f * sizeof(Bitu));
+		}
+		LOG_MSG(" ");
+	}
+#endif
 }
 void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 	//if (len == 2) LOG_MSG("PS55: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
@@ -399,18 +1101,18 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		ps55.prevdata = val;
 	switch (port) {
 	case 0x3e1://?
-		//LOG_MSG("PS55_3E1(??): Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d)", port, ps55.idx_3e1, ps55.p3e1_reg[ps55.idx_3e1], ps55.p3e1_reg[ps55.idx_3e1], val, val);
+		LOG_MSG("PS55_IOCTL: Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d)", port, ps55.idx_3e1, ps55.p3e1_reg[ps55.idx_3e1], ps55.p3e1_reg[ps55.idx_3e1], val, val);
 		if (ps55.idx_3e1 < 0x20) ps55.p3e1_reg[ps55.idx_3e1] = val;//save value for 0x1f function
 		switch (ps55.idx_3e1) {
 		case 0x00:
-			//LOG_MSG("PS55_??: 3E1:%X Accessed !!!!!!!!!!!!! (val: %X, %dd)", ps55.idx_3e1, val, val);
+			//LOG_MSG("PS55_IOCTL: 3E1:%X Accessed !!!!!!!!!!!!! (val: %X, %dd)", ps55.idx_3e1, val, val);
 			break;
 		case 0x02:
 			//Bit 8: ?(this bit is changed many times when filling a shape in BASIC)
 			//Bit 4: Graphics / Text mode ???
 			//Bit 2: Graphics Color / Mono ?
 			//Bit 0: Text / Graphics (Text buffer / APA buffer)
-			//LOG_MSG("PS55_??: 3E1:%X Accessed !!!!!!!!!!!!! (val: %X, %dd)", ps55.idx_3e1, val, val);
+			//LOG_MSG("PS55_IOCTL: 3E1:%X Accessed !!!!!!!!!!!!! (val: %X, %dd)", ps55.idx_3e1, val, val);
 			//Filter 0000 0X0Xh (05h)
 			if ((ps55.data3e1_02 & 0x05) ^ (val & 0x05)) {
 			//if (ps55.data3e1_02 ^ val) {
@@ -431,10 +1133,10 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			ps55.gaijiram_access = val;
 			break;
 		default:
-			//LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e1, val, val);
+			//LOG_MSG("PS55_IOCTL: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e1, val, val);
 			break;
 		}
-		//LOG_MSG("PS55_3E1(??): Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e1, val, val);
+		//LOG_MSG("PS55_IOCTL: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e1, val, val);
 		break;
 	case 0x3e3://Font Buffer Registers (undoc) : TODO IBM 5550 Graphics Support Option uses many unknown regs (Index 20-2Fh)
 		switch (ps55.idx_3e3) {
@@ -448,15 +1150,15 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			break;
 		case 0x08://??? length of font data? 80h latching? 10h
 			ps55.data3e3_08 = val;
-			//if(val != 0x80) LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
+			//if(val != 0x80) LOG_MSG("PS55_FONT: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 			break;
 		case 0x0a://Number of the memory page to access
-			//if (val > 0x04) LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
+			//if (val > 0x04) LOG_MSG("PS55_FONT: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 			ps55.mem_bank = val;
 			break;
-		case 0x0b://??? Select memory to be located on the system bus
+		case 0x0b://??? Select memory to be located on the system bus (b0, 10, 00)
 			ps55.mem_select = val;
-			//if (!(val == 0xb0 || val == 0x10)) LOG_MSG("PS55_??: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
+			//if (!(val == 0xb0 || val == 0x10)) LOG_MSG("PS55_FONT: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 			break;
 		case 0x18://??? Memory refresh? 4->0
 			break;
@@ -464,34 +1166,38 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			//LOG_MSG("PS55_FONT: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 			break;
 		}
-		//LOG_MSG("PS55_3E3(FONT): Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
+		LOG_MSG("PS55_3E3(FONT): Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3e3, val, val);
 		break;
 	case 0x3e5://CRT Controller Registers (undocumented)
 #ifdef C_HEAVY_DEBUG
-		//if (!(ps55.idx_3e5 == 0xe || ps55.idx_3e5 == 0xf))
-		//	LOG_MSG("PS55_CRTC: Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d), len %d", port, ps55.idx_3e5, ps55.crtc_reg[ps55.idx_3e5], ps55.crtc_reg[ps55.idx_3e5], val, val, len);
+		if (!(ps55.idx_3e5 == 0xe || ps55.idx_3e5 == 0xf))
+			LOG_MSG("PS55_CRTC: Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d), len %d", port, ps55.idx_3e5, ps55.crtc_reg[ps55.idx_3e5], ps55.crtc_reg[ps55.idx_3e5], val, val, len);
 #endif
 		if (ps55.idx_3e5 < 0x20) ps55.crtc_reg[ps55.idx_3e5] = val;//save value for 0x1f function
 		switch (ps55.idx_3e5) {
 		//PS/55 actually has 16-bit registers, but in DOSBox, this uses the overflow register to overlap the VGA. Arkward:-<
 		//6, 0c, 0e, 10, 12, 15, 16, 18
-		case 0x00:
-			//val -= 5;//for VGA: Horizontal Total Character Clocks-5
+		case 0x00://for VGA: Horizontal Total Character Clocks-5
+			//val -= 5;
 			break;
 		case 0x01://Horizontal Display End Register
-			if (ps55.crtc_cmode) val-=2;
+			if (ps55.crtc_cmode) 
+				val-=2;
 			else val--;
 			break;
 		case 0x02://Start Horizontal Blanking
-			if (ps55.crtc_cmode) val-=2;
+			if (ps55.crtc_cmode) 
+				val-=2;
 			else val--;
 			break;
 		case 0x04://Start Horizontal Retrace Pulse
-			if (ps55.crtc_cmode) val-=2;
+			if (ps55.crtc_cmode) 
+				val-=2;
 			else val--;
 			break;
 		case 0x05://End Horizontal Retrace
-			if (ps55.crtc_cmode) val-=2;
+			if (ps55.crtc_cmode) 
+				val-=2;
 			else val--;
 			break;
 		case 0x06://Vertical Total
@@ -514,12 +1220,13 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			if(!(ps55.data3e1_02 & 0x01))//in graphics mode, this duplicates scanlines
 				val=0;
 			break;
-		case 0x0c://Stard Address
+		case 0x0c://Start Address
 			if (ps55.crtc_reg[0x1c] & 0x40)
 				return;//ignore write (0xff) if reg 1C & 0x04
 			//val &= 0xff;
 			break;
 		case 0x10://Vertical Retrace Start Register
+			val = 0x400;
 			if (val > 0xff) {
 				Bit8u new_overflow = (val & 0x100) >> 6;//(01 0000 0000 -> 0000 0100)
 				new_overflow |= (val & 0x200) >> 2;//(10 0000 0000 -> 1000 0000)
@@ -532,6 +1239,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			}
 			break;
 		case 0x12://Vertical Display End Register
+			val = 0x400;
 			if (ps55.crtc_cmode) val -= 31;
 			else val-=2;//for VGA
 			if (val > 0xff) {
@@ -545,7 +1253,11 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 				vga.crtc.overflow &= ~0x42;
 			}
 			break;
+		case 0x13://Offset Register (Horizontal line length in memory)
+			//val=64;
+			break;
 		case 0x15://Start Vertical Blank Register
+			val = 0x400;
 			if (val > 0xff) {
 				Bit8u new_overflow = (val & 0x100) >> 5;//(01 0000 0000 -> 0000 1000)
 				new_overflow ^= vga.crtc.overflow & 0x08;
@@ -582,9 +1294,10 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x19:
 			bool new_crtcmode;
 			new_crtcmode = (val & 0x01) ? true : false;//TODO
+			//new_crtcmode = true;
 			if (ps55.crtc_cmode != new_crtcmode) {//if changed
 				ps55.crtc_cmode = new_crtcmode;
-				//LOG_MSG("Reprogramming CRTC timing table.");
+				LOG_MSG("Reprogramming CRTC timing table.");
 				//reconfigure crtc with modified values
 				for (Bitu i = 0; i < 0x1f; i++)
 				{
@@ -605,68 +1318,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		break;
 	case 0x3eb://Graphics Controller Registers
 	case 0x3ec:
-		switch (ps55.idx_3eb) {
-		case 0x00://Set/Reset
-			//LOG_MSG("PS55_GC: Set/Reset (00h) val %02xh (%d) -> %02xh (%d)", ps55.set_reset, ps55.set_reset, val, val);
-			ps55.set_reset = val & 0xff;
-			ps55.full_set_reset_low = FillTable[val & 0x0f];
-			ps55.full_enable_and_set_reset_low = ps55.full_set_reset_low & ps55.full_enable_set_reset_low;
-			ps55.full_set_reset_high = FillTable[(val >> 4) & 0x0f];
-			ps55.full_enable_and_set_reset_high = ps55.full_set_reset_high & ps55.full_enable_set_reset_high;
-			break;
-		case 0x01://Enable Set/Reset
-			//LOG_MSG("PS55_GC: Enable Set/Reset (01h) val %02xh (%d) -> %02xh (%d)", ps55.enable_set_reset, ps55.enable_set_reset, val, val);
-			ps55.enable_set_reset = val & 0xff;
-			ps55.full_enable_set_reset_low = FillTable[val & 0x0f];
-			ps55.full_not_enable_set_reset_low = ~ps55.full_enable_set_reset_low;
-			ps55.full_enable_and_set_reset_low = ps55.full_set_reset_low & ps55.full_enable_set_reset_low;
-			ps55.full_enable_set_reset_high = FillTable[(val >> 4) & 0x0f];
-			ps55.full_not_enable_set_reset_high = ~ps55.full_enable_set_reset_high;
-			ps55.full_enable_and_set_reset_high = ps55.full_set_reset_high & ps55.full_enable_set_reset_high;
-			break;
-		case 0x03://Data Rotate
-			ps55.data_rotate = val & 0x0f;
-			break;
-		case 0x04://Read Map Select
-			//LOG_MSG("PS55_GC: Read Map Select (04h) val %02xh (%d) -> %02xh (%d)", vga.gfx.read_map_select, vga.gfx.read_map_select, val, val);
-			vga.gfx.read_map_select = val & 0x07;
-			vga.config.read_map_select = val & 0x07;
-			break;
-		case 0x06://Reserved (VGA: Miscellaneous)
-		case 0x07://Reserved (VGA: Color Don't Care)
-			//do nothing
-			break;
-		case 0x08://Bit Mask (Low)
-			ps55.bit_mask_low = val & 0xff;
-			ps55.full_bit_mask_low = ExpandTable[val & 0xff];
-			break;
-		case 0x09://Bit Mask (High)
-			ps55.bit_mask_high = val & 0xff;
-			ps55.full_bit_mask_high = ExpandTable[val & 0xff];
-			break;
-		case 0x0a://Map Mask
-			//LOG_MSG("PS55_GC: Map Mask (0Ah) val %02xh (%d) -> %02xh (%d)", ps55.map_mask, ps55.map_mask, val, val);
-			ps55.map_mask = val & 0xff;
-			ps55.full_map_mask_low = FillTable[val & 0x0f];
-			ps55.full_not_map_mask_low = ~ps55.full_map_mask_low;
-			ps55.full_map_mask_high = FillTable[(val >> 4) & 0x0f];
-			ps55.full_not_map_mask_high = ~ps55.full_map_mask_high;
-			break;
-		case 0x0b://Command (must be 08h according to the IBM reference) but J-DOS uses 0Bh
-			// 08 0000 1000
-			// 0B 0000 1011
-			//LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d) -> %02xh (%d)", vga.config.raster_op, vga.config.raster_op, val & 3, val & 3);
-			vga.config.raster_op = val & 3;//?
-			break;
-		case 0x05://Mode
-			//LOG_MSG("PS55_GC: Graphics Mode (05h) val %02xh (%d)", val, val);
-			//val &= 0xf0;
-			//through!!!
-		default:
-			//LOG_MSG("PS55_GC: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3eb, val, val);
-			write_p3cf(port, val, len);
-			break;
-		}
+		PS55_GCR_Write(val);
 		break;
 	//case 0x3ee:
 	//	//LOG_MSG("PS55_GC: Write to port %x, val %04xh (%d)", port, val, val);
@@ -676,8 +1328,74 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		//dummy to avoid logmsg duplication
 		break;
 	default:
-		//if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-		//else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+		if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+		else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+		break;
+	}
+}
+
+void PS55_GCR_Write(Bitu val)
+{
+	switch (ps55.idx_3eb) {
+	case 0x00://Set/Reset
+			  //LOG_MSG("PS55_GC: Set/Reset (00h) val %02xh (%d) -> %02xh (%d)", ps55.set_reset, ps55.set_reset, val, val);
+		ps55.set_reset = val & 0xff;
+		ps55.full_set_reset_low = FillTable[val & 0x0f];
+		ps55.full_enable_and_set_reset_low = ps55.full_set_reset_low & ps55.full_enable_set_reset_low;
+		ps55.full_set_reset_high = FillTable[(val >> 4) & 0x0f];
+		ps55.full_enable_and_set_reset_high = ps55.full_set_reset_high & ps55.full_enable_set_reset_high;
+		break;
+	case 0x01://Enable Set/Reset
+			  //LOG_MSG("PS55_GC: Enable Set/Reset (01h) val %02xh (%d) -> %02xh (%d)", ps55.enable_set_reset, ps55.enable_set_reset, val, val);
+		ps55.enable_set_reset = val & 0xff;
+		ps55.full_enable_set_reset_low = FillTable[val & 0x0f];
+		ps55.full_not_enable_set_reset_low = ~ps55.full_enable_set_reset_low;
+		ps55.full_enable_and_set_reset_low = ps55.full_set_reset_low & ps55.full_enable_set_reset_low;
+		ps55.full_enable_set_reset_high = FillTable[(val >> 4) & 0x0f];
+		ps55.full_not_enable_set_reset_high = ~ps55.full_enable_set_reset_high;
+		ps55.full_enable_and_set_reset_high = ps55.full_set_reset_high & ps55.full_enable_set_reset_high;
+		break;
+	case 0x03://Data Rotate
+		ps55.data_rotate = val & 0x0f;
+		break;
+	case 0x04://Read Map Select
+			  //LOG_MSG("PS55_GC: Read Map Select (04h) val %02xh (%d) -> %02xh (%d)", vga.gfx.read_map_select, vga.gfx.read_map_select, val, val);
+		vga.gfx.read_map_select = val & 0x07;
+		vga.config.read_map_select = val & 0x07;
+		break;
+	case 0x06://Reserved (VGA: Miscellaneous)
+	case 0x07://Reserved (VGA: Color Don't Care)
+			  //do nothing
+		break;
+	case 0x08://Bit Mask (Low)
+		ps55.bit_mask_low = val & 0xff;
+		ps55.full_bit_mask_low = ExpandTable[val & 0xff];
+		break;
+	case 0x09://Bit Mask (High)
+		ps55.bit_mask_high = val & 0xff;
+		ps55.full_bit_mask_high = ExpandTable[val & 0xff];
+		break;
+	case 0x0a://Map Mask
+			  //LOG_MSG("PS55_GC: Map Mask (0Ah) val %02xh (%d) -> %02xh (%d)", ps55.map_mask, ps55.map_mask, val, val);
+		ps55.map_mask = val & 0xff;
+		ps55.full_map_mask_low = FillTable[val & 0x0f];
+		ps55.full_not_map_mask_low = ~ps55.full_map_mask_low;
+		ps55.full_map_mask_high = FillTable[(val >> 4) & 0x0f];
+		ps55.full_not_map_mask_high = ~ps55.full_map_mask_high;
+		break;
+	case 0x0b://Command (must be 08h according to the IBM reference) but J-DOS uses 0Bh
+			  // 08 0000 1000
+			  // 0B 0000 1011
+			  //LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d) -> %02xh (%d)", vga.config.raster_op, vga.config.raster_op, val & 3, val & 3);
+		vga.config.raster_op = val & 3;//?
+		break;
+	case 0x05://Mode
+			  //LOG_MSG("PS55_GC: Graphics Mode (05h) val %02xh (%d)", val, val);
+			  //val &= 0xf0;
+			  //through!!!
+	default:
+		//LOG_MSG("PS55_GC: Write to port %x, idx %x, val %04xh (%d)", port, ps55.idx_3eb, val, val);
+		write_p3cf(0x3e5, val, 1);
 		break;
 	}
 }
@@ -809,8 +1527,8 @@ void PS55_GC_Index_Write(Bitu port, Bitu val, Bitu len) {
 	// Moved to PS55_ATTR_Write function
 	//	break;
 	case 0x3ea://Graphics Controller Registers
-		//LOG_MSG("PS55_GC: Write to port %x, idx %x, val %02xh (%d)", port, ps55.idx_3eb, data, data);
 		ps55.idx_3eb = val;
+		//LOG_MSG("PS55_GC: Write to port %x, idx %x, val %02xh (%d)", port, ps55.idx_3eb, data, data);
 		write_p3ce(port, val, 1);
 		break;
 	}
@@ -859,10 +1577,10 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 			ret = 0x00;
 			break;
 		default:
-			//LOG_MSG("PS55: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e1, len, ret);
+			//LOG_MSG("PS55_IOCTL: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e1, len, ret);
 			break;
 		}
-		//LOG_MSG("PS55: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e1, len, ret);
+		//LOG_MSG("PS55_IOCTL: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e1, len, ret);
 		break;
 	case 0x3e3://Font Buffer Registers (undoc)
 		switch (ps55.idx_3e3) {
@@ -872,12 +1590,12 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 		default:
 			break;
 		}
-		//LOG_MSG("PS55_FONT: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e3, len, ret);
+		LOG_MSG("PS55_FONT: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e3, len, ret);
 		break;
 	case 0x3e5://CRT Controller Registers (undocumented)
 		
 		ret = ps55.crtc_reg[ps55.idx_3e5 & 0x1f];
-		//LOG_MSG("PS55_CRTC: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e5, len, ret);
+		LOG_MSG("PS55_CRTC: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e5, len, ret);
 		break;
 	case 0x3e9://Attribute Controller Registers (undocumented)
 		switch (ps55.idx_3e8 & 0x1f) {
@@ -933,12 +1651,12 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 			break;
 		default:
 			ret = read_p3cf(port, len);
-			//LOG_MSG("PS55_GC: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3eb, len, ret);
+			LOG_MSG("PS55_GC: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3eb, len, ret);
 			break;
 		}
 		break;
 	default:
-		//LOG_MSG("PS55: Read from port %x, len %x, ret %x", port, len, ret);
+		LOG_MSG("PS55: Read from port %x, len %x, ret %x", port, len, ret);
 		break;
 	}
 	if (len == 1 && ps55.nextret == NOAHDATA) {
@@ -956,37 +1674,37 @@ void PS55_DA1_Write(Bitu port, Bitu val, Bitu len) {
 	//EnableGaijiRAMHandler();//for DA1
 	if (len == 2) LOG_MSG("PS55_DA1: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
 	else LOG_MSG("!!PS55_DA1: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
-	switch (port) {
-	case 0x3ee://?
-		//Switch Font ROM/RAM window addressed at A0000-BFFFFh
-		if ((ps55.data3ee & 0x40) ^ (val & 0x40)) {
-			//ps55.gaijiram_access = true;
-			if (val & 0x40) {//Font ROM
-				ps55.mem_select = 0x10;
-				LOG_MSG("Font ROM selected (DA1)");
-			}
-			else//Font display buffer
-			{
-				ps55.mem_select = 0xb0;
-				//DisableGaijiRAMHandler();
-				LOG_MSG("Font buffer selected (DA1)");
-			}
-		}
-		if (ps55.mem_select == 0xb0) {
-			if (val & 0x80) {
-				ps55.data3e3_08 = 0x80;
-				ps55.mem_bank = 1;
-			}
-			else {
-				ps55.mem_bank = 0;
-			}
-		}
-		ps55.data3ee = val;
-		break;
-	case 0x3ef:
-		ps55.mem_bank = val & 0x0f;
-		break;
-	}
+	//switch (port) {
+	//case 0x3ee://?
+	//	//Switch Font ROM/RAM window addressed at A0000-BFFFFh
+	//	if ((ps55.data3ee & 0x40) ^ (val & 0x40)) {
+	//		//ps55.gaijiram_access = true;
+	//		if (val & 0x40) {//Font ROM
+	//			ps55.mem_select = 0x10;
+	//			LOG_MSG("Font ROM selected (DA1)");
+	//		}
+	//		else//Font display buffer
+	//		{
+	//			ps55.mem_select = 0xb0;
+	//			DisableGaijiRAMHandler();
+	//			LOG_MSG("Font buffer selected (DA1)");
+	//		}
+	//	}
+	//	if (ps55.mem_select == 0xb0) {
+	//		if (val & 0x80) {
+	//			ps55.data3e3_08 = 0x80;
+	//			ps55.mem_bank = 1;
+	//		}
+	//		else {
+	//			ps55.mem_bank = 0;
+	//		}
+	//	}
+	//	ps55.data3ee = val;
+	//	break;
+	//case 0x3ef:
+	//	ps55.mem_bank = val & 0x0f;
+	//	break;
+	//}
 }
 Bitu PS55_DA1_Read(Bitu port, Bitu len) {
 	LOG_MSG("!!PS55_DA1: Read from port %x, len %x", port, len);
@@ -998,43 +1716,49 @@ void FinishSetMode_PS55(Bitu /*crtc_base*/, VGA_ModeExtraData* modeData) {
 
 void DetermineMode_PS55() {
 #ifdef C_HEAVY_DEBUG
-	LOG_MSG("Mode? 3e1_2 %02X, 3e3_0 %02X, 3e5_1c %02X, 3e5_1f %02X, 3e8_38 %02X, 3e8_3f %02X",
-		ps55.data3e1_02, ps55.mem_conf, ps55.crtc_reg[0x1c], ps55.crtc_reg[0x1f], ps55.text_mode03, ps55.data3e8_1f);
-	LOG_MSG("3E1 0x00-f: %02X %02X %02X %02X %02X %02X %02X",
-		ps55.p3e1_reg[0x00],
-		ps55.p3e1_reg[0x01],
-		ps55.p3e1_reg[0x02],
-		ps55.p3e1_reg[0x03],
-		ps55.p3e1_reg[0x08],
-		ps55.p3e1_reg[0x0d],
-		ps55.p3e1_reg[0x0e]);
-	LOG_MSG("CRTC 0x0c-1f: %02X %02X %02X %02X %02X %02X %02X %02X",
-		ps55.crtc_reg[0x0c],
-		ps55.crtc_reg[0x19],
-		ps55.crtc_reg[0x1a],
-		ps55.crtc_reg[0x1b],
-		ps55.crtc_reg[0x1c],
-		ps55.crtc_reg[0x1d],
-		ps55.crtc_reg[0x1e],
-		ps55.crtc_reg[0x1f]);
-	LOG_MSG("ATTR 0x10-17: %02X %02X %02X %02X %02X %02X %02X %02X",
-		ps55.attr_reg[0x10],
-		ps55.attr_reg[0x11],
-		ps55.attr_reg[0x12],
-		ps55.attr_reg[0x13],
-		ps55.attr_reg[0x14],
-		ps55.attr_reg[0x15],
-		ps55.attr_reg[0x16],
-		ps55.attr_reg[0x17]);
-	LOG_MSG("ATTR 0x18-1f: %02X %02X %02X %02X %02X %02X %02X %02X",
-		ps55.attr_reg[0x18],
-		ps55.attr_reg[0x19],
-		ps55.attr_reg[0x1a],
-		ps55.attr_reg[0x1b],
-		ps55.attr_reg[0x1c],
-		ps55.attr_reg[0x1d],
-		ps55.attr_reg[0x1e],
-		ps55.attr_reg[0x1f]);
+	//LOG_MSG("Mode? 3e1_2 %02X, 3e3_0 %02X, 3e5_1c %02X, 3e5_1f %02X, 3e8_38 %02X, 3e8_3f %02X",
+	//	ps55.data3e1_02, ps55.mem_conf, ps55.crtc_reg[0x1c], ps55.crtc_reg[0x1f], ps55.text_mode03, ps55.data3e8_1f);
+	//LOG_MSG("3E1 0x00-f: %02X %02X %02X %02X %02X %02X %02X",
+	//	ps55.p3e1_reg[0x00],
+	//	ps55.p3e1_reg[0x01],
+	//	ps55.p3e1_reg[0x02],
+	//	ps55.p3e1_reg[0x03],
+	//	ps55.p3e1_reg[0x08],
+	//	ps55.p3e1_reg[0x0d],
+	//	ps55.p3e1_reg[0x0e]);
+	//LOG_MSG("CRTC 0x0c-1f: %02X %02X %02X %02X %02X %02X %02X %02X",
+	//	ps55.crtc_reg[0x0c],
+	//	ps55.crtc_reg[0x19],
+	//	ps55.crtc_reg[0x1a],
+	//	ps55.crtc_reg[0x1b],
+	//	ps55.crtc_reg[0x1c],
+	//	ps55.crtc_reg[0x1d],
+	//	ps55.crtc_reg[0x1e],
+	//	ps55.crtc_reg[0x1f]);
+	//LOG_MSG("ATTR 0x10-17: %02X %02X %02X %02X %02X %02X %02X %02X",
+	//	ps55.attr_reg[0x10],
+	//	ps55.attr_reg[0x11],
+	//	ps55.attr_reg[0x12],
+	//	ps55.attr_reg[0x13],
+	//	ps55.attr_reg[0x14],
+	//	ps55.attr_reg[0x15],
+	//	ps55.attr_reg[0x16],
+	//	ps55.attr_reg[0x17]);
+	//LOG_MSG("ATTR 0x18-1f: %02X %02X %02X %02X %02X %02X %02X %02X",
+	//	ps55.attr_reg[0x18],
+	//	ps55.attr_reg[0x19],
+	//	ps55.attr_reg[0x1a],
+	//	ps55.attr_reg[0x1b],
+	//	ps55.attr_reg[0x1c],
+	//	ps55.attr_reg[0x1d],
+	//	ps55.attr_reg[0x1e],
+	//	ps55.attr_reg[0x1f]);
+	//for (Bitu i = 0; i < 0x20; i++)
+	//{
+	//	vga.crtc.index = i;
+	//	LOG_MSG("PS55_CRTC 0x%02X: %X (%d)", i, ps55.crtc_reg[i], ps55.crtc_reg[i]);
+	//	LOG_MSG("VGA_CRTC 0x%02X: %X (%d)", i, vga_read_p3d5(0,1), vga_read_p3d5(0, 1));
+	//}
 #endif
 	if (ps55.carden)
 	{
@@ -1140,9 +1864,9 @@ VMX  3 C3 3e1_2 15, 3e3_0 6B, 3e5_1c 00, 3e5_1f 02, 3e8_38 01, 3e8_3f 0C
 //		//}
 //	}
 //}
-//void SetClock_PS55(Bitu which, Bitu target) {
-//	VGA_StartResize();
-//}
+void SetClock_PS55(Bitu which, Bitu target) {
+	VGA_StartResize();
+}
 
 Bitu GetClock_PS55() {
 	if (ps55.carden)
@@ -1182,6 +1906,7 @@ void PS55_WakeUp(void) {
 	ps55.vga_config_line_compare = vga.config.line_compare;
 	vga.crtc.overflow = 0;
 	vga.config.line_compare = 0xFFF;
+	vga.crtc.read_only = false;
 	MEM_ResetPageHandler(VGA_PAGE_A0, 32);//release VGA handlers
 
 	IO_RegisterWriteHandler(0x3e0, &PS55_GC_Index_Write, IO_MB | IO_MW);
@@ -1243,9 +1968,15 @@ void SVGA_Setup_PS55(void) {
 	//ps55.font_da1 = new Bit8u[1536 * 1024];//1024 KB for Display Adapter (I) Font ROM
 	//memset(ps55.font_da1, 0x00, 1536 * 1024);
 	//generate_DA1Font();
+	memset(ps55.bitblt_ram, 0x00, PS55_BITBLT_MEMSIZE);
+	memset(ps55.bitblt_reg, 0xfe, 0x3f * sizeof(Bitu));//clear memory
 	ps55.mem_select = 0xb0;
 	if (ps55.palette_mono) ps55.data3e1_03 &= 0x7f;
 
+	IO_RegisterWriteHandler(0x74, &write_p74, IO_MB | IO_MW);
+	//IO_RegisterReadHandler(0x94, &read_p94, IO_MB);
+	//IO_RegisterWriteHandler(0x96, &write_p96, IO_MB);
+	IO_RegisterReadHandler(0x76, &read_p76, IO_MB);
 	IO_RegisterWriteHandler(0x94, &write_p94, IO_MB);
 	IO_RegisterReadHandler(0x94, &read_p94, IO_MB);
 	IO_RegisterWriteHandler(0x96, &write_p96, IO_MB);

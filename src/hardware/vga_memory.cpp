@@ -342,8 +342,9 @@ INLINE static Bit32u ModeOperation2(Bit8u val) {
 		break;
 	case 0x02:
 		// Write Mode 2:????
-		full = ExpandTable[val];
-		full = RasterOp(full, vga.config.full_bit_mask);
+		//full = ExpandTable[val];
+		//full=RasterOp(FillTable[val&0xF],vga.config.full_bit_mask);
+		full = RasterOp(FillTable[val & 0xF], vga.config.full_bit_mask);
 		break;
 	case 0x03:
 		// Write Mode 3:
@@ -362,17 +363,18 @@ INLINE static Bit32u ModeOperation2(Bit8u val) {
 class VGA_UnchainedPS55_Handler : public VGA_UnchainedRead_Handler {
 	void writeData(PhysPt start, Bit8u val) {
 		if(vga.config.write_mode != 1) vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
-		Bit32u data = ModeOperation2(val);
+		//vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time
+		Bit32u data = ModeOperation(val);
 		/* Update video memory and the pixel buffer */
 		VGA_Latch pixels;
 		pixels.d = ((Bit32u*)vga.mem.linear)[start];
-		//VGA_Latch debug_dest; debug_dest.d = pixels.d;
+		VGA_Latch debug_dest; debug_dest.d = pixels.d;
 		pixels.d &= ps55.full_not_map_mask_low;
 		pixels.d |= (data & ps55.full_map_mask_low);
 		((Bit32u*)vga.mem.linear)[start] = pixels.d;
 		Bit8u* write_pixels = &vga.fastmem[start << 3];
-		//Bit32u debug_destpx1 = *(Bit32u*)write_pixels;
-		//Bit32u debug_destpx2 = *(Bit32u*)(write_pixels + 4);
+		Bit32u debug_destpx1 = *(Bit32u*)write_pixels;
+		Bit32u debug_destpx2 = *(Bit32u*)(write_pixels + 4);
 		Bit32u colors0_3, colors4_7;
 		VGA_Latch temp; temp.d = (pixels.d >> 4) & 0x0f0f0f0f;
 		colors0_3 =
@@ -392,7 +394,8 @@ class VGA_UnchainedPS55_Handler : public VGA_UnchainedRead_Handler {
 		//heeavy debug
 		//if ((start % 0x80 < 10) && (start < 0x3400)) {
 		//LOG_MSG("L x %04d y %03d mode%X rop%X src %02X smsk %08X bmsk %08X dst %08X lat %08X px %08X %08X",
-		//	start % 0x80 * 8, start / 0x80, vga.config.write_mode, vga.config.raster_op, val, ps55.full_enable_and_set_reset_low, vga.config.full_bit_mask, vga.latch.d, data, debug_destpx1, debug_destpx2);
+		//	start % 0x80 * 8, start / 0x80, vga.config.write_mode, vga.config.raster_op,
+		//	val, ps55.full_enable_and_set_reset_low, vga.config.full_bit_mask, vga.latch.d, data, debug_destpx1, debug_destpx2);
 		//LOG_MSG("L x %04d y %03d mmsk %02X rd %08X, wt %08X,                                       px %08X %08X",
 		//	start % 0x80 * 8, start / 0x80, ps55.map_mask, debug_dest.d, pixels.d, colors0_3, colors4_7);
 		//}
