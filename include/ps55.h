@@ -9,6 +9,7 @@ This content is under the MIT License.
 //#define VGA_PAGE_PS55TEXT  (0xE0000/4096)
 #define NOAHDATA 0xAAAAC
 #define GAIJI_RAMBASE (0xA0000/4096)
+#define PS55_BITBLT_MEMSIZE 0x60
 
 #define IS_MODE_PS55TEXT (vga.mode == M_PS55_TEXT)
 
@@ -18,12 +19,19 @@ Bit16u SJIStoIBMJ(Bit16u knj);
 
 struct MCARegisters {
 	Bitu cardsel;
+	Bitu idx_nvram;
 	bool cardsetupen;
 	bool vgasetupen;
 	bool mothersetupen;
 };
 
+typedef struct {
+	Bit8s bitshift_destr;
+	Bit8u raster_op;
+} PS55_bitblt;
+
 struct PS55Registers {
+	PS55_bitblt bitblt;
 	bool carden = 0;
 	Bitu idx_3e1 = 0;
 	Bit16u gaijiram_access = 0;
@@ -43,7 +51,11 @@ struct PS55Registers {
 	Bit8u palette_line;
 	Bit8u attr_mode = 0;//3e8 1d
 	Bit8u* gaiji_ram;
-	Bit8u* font_da1;
+	Bit8u bitblt_ram[PS55_BITBLT_MEMSIZE];
+	Bitu bitblt_reg[0x3f];
+	Bitu debug_bitblt_reg[65536][0x3f];//for debug
+	Bit16u debug_bitblt_reg_ip = 0;//for debug
+	//Bit8u* font_da1; for DA1
 	Bit8u mem_conf = 0x2b;//3e3 00
 	Bit8u data3e3_08 = 0;//3e3 08
 	Bit8u mem_bank = 0;//3e3 0a
