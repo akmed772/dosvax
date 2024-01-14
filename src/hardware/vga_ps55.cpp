@@ -56,10 +56,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len);
 void PS55_GCR_Write(Bitu val);
 
 void EnableGaijiRAMHandler();
-
 void DisableGaijiRAMHandler();
-
-void PS55_WritePlaneDataWithBitmask(const Bitu destvmemaddr, const Bit16u mask, VGA_Latch srclatch1, VGA_Latch srclatch2);
 
 //#define VGA_PAGES		(128/4)
 #define VGA_PAGE_A0		(0xA0000/4096)
@@ -411,7 +408,7 @@ void EnableGaijiRAMHandler()
 		//LOG_MSG("PS55_MemHnd: Setup page handler %X" , GAIJI_RAMBASE + j);
 	}
 	PAGING_ClearTLB();
-	LOG_MSG("PS55_MemHnd: Setup page handlers");
+	//LOG_MSG("PS55_MemHnd: Setup page handlers");
 }
 Bit8u PS55_BitRRotate(Bit8u n, Bit8s d)
 {
@@ -425,6 +422,7 @@ Bit8u PS55_BitRRotate(Bit8u n, Bit8s d)
 }
 
 void PS55_UpdatePixel(const Bitu start, const VGA_Latch pixels) {
+	((Bit32u*)vga.mem.linear)[start] = pixels.d;
 	Bit8u* write_pixels = &vga.fastmem[start << 3];
 	Bit32u colors0_3, colors4_7;
 	VGA_Latch temp; temp.d = (pixels.d >> 4) & 0x0f0f0f0f;
@@ -448,29 +446,131 @@ typedef union {
 	Bit8u b[4];
 } PS55_VidSeq32;
 
-//void PS55_WritePlaneDataWithBitmask(const Bitu destvmemaddr, const Bit8u color, const Bit8u mask)
+//void PS55_WritePlaneDataWithBitmask32(Bitu destvmemaddr, const Bit32u mask, VGA_Latch srclatch1, VGA_Latch srclatch2)
 //{
-//	// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
-//	VGA_Latch srclatch, destlatch;
-//	if (destvmemaddr >= vga.vmemsize) return;
-//	srclatch.d = 0;
-//	destlatch.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
+//	VGA_Latch destlatch1, destlatch2, destlatch3, destlatch4;
+//	Bit8u bitshiftin_destr = ps55.bitblt.bitshift_destr;
+//	//Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr % 8;
+//	destvmemaddr &= 0xfffffffe;
+//	//if(destvmemaddr & 1) return;
+//	//if (bitshiftin_destr % 8 == 0) destvmemaddr += 2;
+//	//destvmemaddr += 2;
+//	//destvmemaddr += bitshiftin_destr / 8 * 2;
+//	destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
+//	destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 1];
+//	destlatch3.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 2];
+//	destlatch4.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 3];
+//
+//	// 5 bits shift write to right
+//	//           | 1000 0001  | 1010 0101 |
+//	//           | xxxx x100  | 0000 1101 | 0010 1xxx |
+//	// 9 bits shift write to right
+//	//           | 1000 0001  | 
+//	//           | xxxx xxxx  | x100 0000 | 1xxx xxxx |
+//	// 9 bits shift write to right
+//	// source    | 1000 0001  | 1010 0101 |
+//	// mask      | 0000 0011  | 1111 1111 |
+//	// shift msk |               1111 111   1111 1111   1
+//	// result    | xxxx xxxx  | x1000 000 | 1101 0010 | 1xxx xxxx
+//	// 15 bits shift write to right
+//	// source    | 1000 0001  | 1010 0101 |
+//	// mask      | 0000 0011  | 1111 1111 |
+//	// shift msk |                      1   1111 1111   1111 111
+//	// result    | xxxx xxxx  | xxxx xxx1 | 0000 0011 | 0100 101x |
+//	//Bit8u bitshiftin_destr = 16 - ps55.bitblt.bitshift_destr;
+//	PS55_VidSeq32 mask32in; mask32in.d = (Bit32u)mask;//[3]0x00 [2]0x00 [1]0xFF [0]0x3F (mask is 00111111 11111111, but byte order is opposite)
+//	PS55_VidSeq32 mask32; mask32.d = 0;
+//	//PS55_VidSeq32 masksh32; masksh32.d = 0xffff0000;
+//	mask32.b[3] = mask32in.b[0];
+//	mask32.b[2] = mask32in.b[1];
+//	mask32.b[1] = mask32in.b[2];
+//	mask32.b[0] = mask32in.b[3];
+//	//mask32.d &= 0xffff0000;//[3]0x3F [2]0xFF [1]0x00 [0]0x00
+//	//mask32.d &= 0xffff0000;//[3]0x3F [2]0xFF [1]0x00 [0]0x00
+//	//mask32.d = 0xffffffff;
+//	//mask32.d <<= (16 - bitshiftin_destr);
+//	//mask32.d >>= bitshiftin_destr;
+//	//masksh32.d >>= bitshiftin_destr;
+//	//mask32.d &= masksh32.d;
+//	//PS55_VidSeq32 mask32; mask32.d = (Bit32u)mask << (16);
+//	//LOG_MSG("dest %08X     | src      mask     s=%x", destvmemaddr, bitshiftin_destr);
 //	for (int i = 0; i < 4; i++)
 //	{
-//		destlatch.b[i] &= ~mask;
-//		if (color >> i & 1) srclatch.b[i] = 0xff;
-//		srclatch.b[i] &= mask;
-//		destlatch.b[i] |= srclatch.b[i];
+//		// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
+//		//srclatch1.b[i] &= masksrc1;
+//		//srclatch2.b[i] &= masksrc2;
+//		PS55_VidSeq32 srctemp32; srctemp32.d = 0;
+//		srctemp32.b[3] = srclatch1.b[i];
+//		srctemp32.b[2] = srclatch2.b[i];
+//		//LOG_MSG("                             %08x", srctemp32.d);
+//		//Bit16u srctemp16 = ((Bit16u)(srclatch1.b[i]) << 8) | srclatch2.b[i];
+//		srctemp32.d >>= bitshiftin_destr;
+//		//srctemp32.d &= mask32.d;
+//		//if(srctemp16 > 0xff) LOG_MSG("srctemp16: %x", srctemp16);
+//		//LOG_MSG("%02x %02x %02x %02x          | %02x %02x %02x %02x ,%02x %02x %02x %02x (Plane %d)", destlatch1.b[i], destlatch2.b[i], destlatch3.b[i], destlatch4.b[i],
+//		//	srctemp32.b[3], srctemp32.b[2], srctemp32.b[1], srctemp32.b[0], mask32.b[3], mask32.b[2], mask32.b[1], mask32.b[0], i);
+//		switch (ps55.bitblt.raster_op) {
+//		case 0x00:	/* None */
+//					//return (input & mask) | (vga.latch.d & ~mask);
+//			//destlatch1.b[i] &= ~masksh32.b[3];
+//			//destlatch2.b[i] &= ~masksh32.b[2];
+//			//destlatch3.b[i] &= ~masksh32.b[1];
+//			destlatch1.b[i] &= ~mask32.b[3];
+//			destlatch2.b[i] &= ~mask32.b[2];
+//			destlatch3.b[i] &= ~mask32.b[1];
+//			destlatch4.b[i] &= ~mask32.b[0];
+//			destlatch1.b[i] |= srctemp32.b[3] & mask32.b[3];
+//			destlatch2.b[i] |= srctemp32.b[2] & mask32.b[2];
+//			destlatch3.b[i] |= srctemp32.b[1] & mask32.b[1];
+//			destlatch4.b[i] |= srctemp32.b[0] & mask32.b[0];
+//			break;
+//		case 0x01:	/* AND */
+//					//return (input | ~mask) & vga.latch.d;
+//			destlatch1.b[i] &= srctemp32.b[3] | ~mask32.b[3];
+//			destlatch2.b[i] &= srctemp32.b[2] | ~mask32.b[2];
+//			destlatch3.b[i] &= srctemp32.b[1] | ~mask32.b[1];
+//			destlatch4.b[i] &= srctemp32.b[0] | ~mask32.b[0];
+//			break;
+//		case 0x02:	/* OR */
+//					//return (input & mask) | vga.latch.d;
+//			destlatch1.b[i] |= srctemp32.b[3] & mask32.b[3];
+//			destlatch2.b[i] |= srctemp32.b[2] & mask32.b[2];
+//			destlatch3.b[i] |= srctemp32.b[1] & mask32.b[1];
+//			destlatch4.b[i] |= srctemp32.b[0] & mask32.b[0];
+//			break;
+//		case 0x03:	/* XOR */
+//					//return (input & mask) ^ vga.latch.d;
+//			destlatch1.b[i] ^= srctemp32.b[3] & mask32.b[3];
+//			destlatch2.b[i] ^= srctemp32.b[2] & mask32.b[2];
+//			destlatch3.b[i] ^= srctemp32.b[1] & mask32.b[1];
+//			destlatch4.b[i] ^= srctemp32.b[0] & mask32.b[0];
+//			break;
+//		}
+//		//LOG_MSG("%08x %08x %08x", destlatch1.d, destlatch2.d, destlatch3.d);
+//		//LOG_MSG("%02x %02x %02x %02x", destlatch1.b[i], destlatch2.b[i], destlatch3.b[i], destlatch4.b[i]);
 //	}
-//	((Bit32u*)vga.mem.linear)[destvmemaddr] = destlatch.d;
-//	PS55_UpdatePixel(destvmemaddr, destlatch);
+//	PS55_UpdatePixel(destvmemaddr, destlatch1);
+//	PS55_UpdatePixel(destvmemaddr + 1, destlatch2);
+//	PS55_UpdatePixel(destvmemaddr + 2, destlatch3);
+//	PS55_UpdatePixel(destvmemaddr + 3, destlatch4);
 //}
-void PS55_WritePlaneDataWithBitmask(const Bitu destvmemaddr, const Bit16u mask, VGA_Latch srclatch1, VGA_Latch srclatch2)
+void PS55_WritePlaneDataWithBitmask(Bitu destvmemaddr, const Bit16u mask, VGA_Latch srclatch1, VGA_Latch srclatch2, VGA_Latch srclatch3, VGA_Latch srclatch4)
 {
-	VGA_Latch destlatch1, destlatch2, destlatch3;
+	VGA_Latch destlatch1, destlatch2, destlatch3, destlatch4;
+	Bit8u bitshiftin_destr = ps55.bitblt.bitshift_destr;
+	//if (bitshiftin_destr == 0) bitshiftin_destr = 16;
+	//Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr % 8;
+	destvmemaddr &= 0xfffffffe;
+	//if(destvmemaddr & 1) return;
+	// 
+	//if (ps55.bitblt.bitshift_destr % 16 == 0) destvmemaddr += 2;
+	destvmemaddr += 2;
+	// 
+	//destvmemaddr += bitshiftin_destr / 8;
 	destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
-	//destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 1];
+	destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 1];
 	destlatch3.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 2];
+	destlatch4.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 3];
 
 	// 5 bits shift write to right
 	//           | 1000 0001  | 1010 0101 |
@@ -479,130 +579,141 @@ void PS55_WritePlaneDataWithBitmask(const Bitu destvmemaddr, const Bit16u mask, 
 	//           | 1000 0001  | 
 	//           | xxxx xxxx  | x100 0000 | 1xxx xxxx |
 	// 9 bits shift write to right
-	//           | 1000 0001  | 1010 0101 |
-	//           | xxxx xxxx  | x1000 000 | 1101 0010 | 1xxx xxxx
-	Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr;
-	//Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr % 8;
-	PS55_VidSeq32 mask32; mask32.d = (Bit32u)mask;//[3]0x00 [2]0x00 [1]0xFF [0]0x3F (mask is 00111111 11111111, but byte order is opposite)
+	// source    | 1000 0001  | 1010 0101 |
+	// mask      | 0000 0011  | 1111 1111 |
+	// shift msk |               1111 111   1111 1111   1
+	// result    | xxxx xxxx  | x1000 000 | 1101 0010 | 1xxx xxxx
+	// 15 bits shift write to right
+	// source    | 1000 0001  | 1010 0101 |
+	// mask      | 0000 0011  | 1111 1111 |
+	// shift msk |                      1   1111 1111   1111 111
+	// result    | xxxx xxxx  | xxxx xxx1 | 0000 0011 | 0100 101x |
+	//Bit8u bitshiftin_destr = 16 - ps55.bitblt.bitshift_destr;
+	PS55_VidSeq32 mask32in; mask32in.d = (Bit32u)mask;//[3]0x00 [2]0x00 [1]0xFF [0]0x3F (mask is 00111111 11111111, but byte order is opposite)
+	PS55_VidSeq32 mask32; mask32.d = 0;
 	PS55_VidSeq32 masksh32; masksh32.d = 0xffff0000;
-	mask32.b[3] = mask32.b[0];
-	mask32.b[2] = mask32.b[1];
-	mask32.d &= 0xffff0000;
-	mask32.d = 0xffffffff;
+	mask32.b[3] = mask32in.b[0];
+	mask32.b[2] = mask32in.b[1];
+	//mask32.b[1] = mask32in.b[2];
+	//mask32.b[0] = mask32in.b[3];
+	mask32.d &= 0xffff0000;//[3]0x3F [2]0xFF [1]0x00 [0]0x00
+	//mask32.d |= 0x0000ffff;
+	//mask32.d &= 0xffff0000;//[3]0x3F [2]0xFF [1]0x00 [0]0x00
+	//mask32.d = 0xffffffff;
 	//mask32.d <<= (16 - bitshiftin_destr);
-	//mask32.d >>= bitshiftin_destr;
+	//mask32.d >>= 16;
 	//masksh32.d >>= bitshiftin_destr;
+	//masksh32.d <<= (16 - bitshiftin_destr);
 	//mask32.d &= masksh32.d;
 	//PS55_VidSeq32 mask32; mask32.d = (Bit32u)mask << (16);
+	//LOG_MSG("dest %08X     | src      mask     s=%x", destvmemaddr, bitshiftin_destr);
 	for (int i = 0; i < 4; i++)
 	{
 		// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
 		//srclatch1.b[i] &= masksrc1;
 		//srclatch2.b[i] &= masksrc2;
 		PS55_VidSeq32 srctemp32; srctemp32.d = 0;
+		PS55_VidSeq32 destop32, desttemp32;
 		srctemp32.b[3] = srclatch1.b[i];
 		srctemp32.b[2] = srclatch2.b[i];
+		srctemp32.b[1] = srclatch3.b[i];
+		srctemp32.b[0] = srclatch4.b[i];
+		destop32.b[3] = destlatch1.b[i];
+		destop32.b[2] = destlatch2.b[i];
+		destop32.b[1] = destlatch3.b[i];
+		destop32.b[0] = destlatch4.b[i];
+		//desttemp32.d = destop32.d;
+		//destop32.d <<= bitshiftin_destr;
+		//LOG_MSG("                             %08x", srctemp32.d);
 		//Bit16u srctemp16 = ((Bit16u)(srclatch1.b[i]) << 8) | srclatch2.b[i];
-		//srctemp32.d >>= bitshiftin_destr;
+		if (bitshiftin_destr) {
+			srctemp32.d >>= bitshiftin_destr;
+			srctemp32.d <<= 16;
+		}
+		//srctemp32.d <<= (16 - bitshiftin_destr);
 		//srctemp32.d &= mask32.d;
 		//if(srctemp16 > 0xff) LOG_MSG("srctemp16: %x", srctemp16);
+		//LOG_MSG("%02x %02x %02x %02x          | %02x %02x %02x %02x ,%02x %02x %02x %02x (Plane %d, rop %d)", destlatch1.b[i], destlatch2.b[i], destlatch3.b[i], destlatch4.b[i],
+		//	srctemp32.b[3], srctemp32.b[2], srctemp32.b[1], srctemp32.b[0], mask32.b[3], mask32.b[2], mask32.b[1], mask32.b[0], i, ps55.bitblt.raster_op);
 		switch (ps55.bitblt.raster_op) {
 		case 0x00:	/* None */
 					//return (input & mask) | (vga.latch.d & ~mask);
 			//destlatch1.b[i] &= ~masksh32.b[3];
 			//destlatch2.b[i] &= ~masksh32.b[2];
 			//destlatch3.b[i] &= ~masksh32.b[1];
-			destlatch1.b[i] &= ~mask32.b[3];
-			destlatch2.b[i] &= ~mask32.b[2];
-			destlatch3.b[i] &= ~mask32.b[1];
-			destlatch1.b[i] |= srctemp32.b[3] & mask32.b[3];
-			destlatch2.b[i] |= srctemp32.b[2] & mask32.b[2];
-			destlatch3.b[i] |= srctemp32.b[1] & mask32.b[1];
+			destop32.d &= ~mask32.d;
+			//destlatch1.b[i] &= ~mask32.b[3];
+			//destlatch2.b[i] &= ~mask32.b[2];
+			//destlatch3.b[i] &= ~mask32.b[1];
+			//destlatch4.b[i] &= ~mask32.b[0];
+			destop32.d |= srctemp32.d & mask32.d;
+			//destlatch1.b[i] |= srctemp32.b[3] & mask32.b[3];
+			//destlatch2.b[i] |= srctemp32.b[2] & mask32.b[2];
+			//destlatch3.b[i] |= srctemp32.b[1] & mask32.b[1];
+			//destlatch4.b[i] |= srctemp32.b[0] & mask32.b[0];
 			break;
 		case 0x01:	/* AND */
 					//return (input | ~mask) & vga.latch.d;
-			destlatch1.b[i] &= srctemp32.b[3] | ~mask32.b[3];
-			destlatch2.b[i] &= srctemp32.b[2] | ~mask32.b[2];
-			destlatch3.b[i] &= srctemp32.b[1] | ~mask32.b[1];
+			destop32.d &= srctemp32.d | ~mask32.d;
+			//destlatch1.b[i] &= srctemp32.b[3] | ~mask32.b[3];
+			//destlatch2.b[i] &= srctemp32.b[2] | ~mask32.b[2];
+			//destlatch3.b[i] &= srctemp32.b[1] | ~mask32.b[1];
+			//destlatch4.b[i] &= srctemp32.b[0] | ~mask32.b[0];
 			break;
 		case 0x02:	/* OR */
 					//return (input & mask) | vga.latch.d;
-			destlatch1.b[i] |= srctemp32.b[3] & mask32.b[3];
-			destlatch2.b[i] |= srctemp32.b[2] & mask32.b[2];
-			destlatch3.b[i] |= srctemp32.b[1] & mask32.b[1];
+			destop32.d |= srctemp32.d & mask32.d;
+			//destlatch1.b[i] |= srctemp32.b[3] & mask32.b[3];
+			//destlatch2.b[i] |= srctemp32.b[2] & mask32.b[2];
+			//destlatch3.b[i] |= srctemp32.b[1] & mask32.b[1];
+			//destlatch4.b[i] |= srctemp32.b[0] & mask32.b[0];
 			break;
 		case 0x03:	/* XOR */
 					//return (input & mask) ^ vga.latch.d;
-			destlatch1.b[i] ^= srctemp32.b[3] & mask32.b[3];
-			destlatch2.b[i] ^= srctemp32.b[2] & mask32.b[2];
-			destlatch3.b[i] ^= srctemp32.b[1] & mask32.b[1];
+			destop32.d ^= srctemp32.d & mask32.d;
+			//destlatch1.b[i] ^= srctemp32.b[3] & mask32.b[3];
+			//destlatch2.b[i] ^= srctemp32.b[2] & mask32.b[2];
+			//destlatch3.b[i] ^= srctemp32.b[1] & mask32.b[1];
+			//destlatch4.b[i] ^= srctemp32.b[0] & mask32.b[0];
 			break;
 		}
+		//destop32.d >>= bitshiftin_destr;
+		//masksh32.d >>= bitshiftin_destr;
+		//desttemp32.d &= ~masksh32.d;
+		//desttemp32.d |= destop32.d & masksh32.d;
+		destlatch1.b[i] = destop32.b[3];
+		destlatch2.b[i] = destop32.b[2];
+		destlatch3.b[i] = destop32.b[1];
+		destlatch4.b[i] = destop32.b[0];
+		//LOG_MSG("%08x %08x %08x", destlatch1.d, destlatch2.d, destlatch3.d);
+		//LOG_MSG("%02x %02x %02x %02x", destlatch1.b[i], destlatch2.b[i], destlatch3.b[i], destlatch4.b[i]);
 	}
-	((Bit32u*)vga.mem.linear)[destvmemaddr] = destlatch1.d;
+	if(destvmemaddr < vga.vmemsize)
 	PS55_UpdatePixel(destvmemaddr, destlatch1);
-	//((Bit32u*)vga.mem.linear)[destvmemaddr + 1] = destlatch2.d;
-	//PS55_UpdatePixel(destvmemaddr + 1, destlatch2);
-	((Bit32u*)vga.mem.linear)[destvmemaddr + 2] = destlatch3.d;
-	PS55_UpdatePixel(destvmemaddr + 2, destlatch3);
+	if (destvmemaddr < vga.vmemsize + 1)
+	PS55_UpdatePixel(destvmemaddr + 1, destlatch2);
+	//if (destvmemaddr < vga.vmemsize + 2)
+	//PS55_UpdatePixel(destvmemaddr + 2, destlatch3);
+	//if (destvmemaddr < vga.vmemsize + 3)
+	//PS55_UpdatePixel(destvmemaddr + 3, destlatch4);
 }
 void PS55_DrawColorWithBitmask(Bitu destvmemaddr, const Bit8u color, Bit16u mask)
 {
 	//VGA_Latch srclatch1, srclatch2, destlatch1, destlatch2;
 	VGA_Latch srclatch1, srclatch2;
-	if (ps55.bitblt.bitshift_destr == 0) destvmemaddr += 2;
+	VGA_Latch srclatch3, srclatch4;
+	//if (ps55.bitblt.bitshift_destr % 8 == 0) destvmemaddr += 2;
 	//Bit8s bitshiftin_srcr = ps55.bitblt.bitshift_srcr % 8;
 	//Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr % 8;
 	//if (destvmemaddr + 1 >= vga.vmemsize) return;
 	srclatch1.d = FillTable[color & 0x0f];
 	srclatch2.d = FillTable[color & 0x0f];
+	srclatch3.d = FillTable[color & 0x0f];
+	srclatch4.d = FillTable[color & 0x0f];
 	//destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
 	//destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 1];
 
-	//mask = PS55_BitRRotate(mask, bitshiftin_destr);
-	//Bit8u masksrc1 = ~(0xff << (8 - bitshiftin_srcr));//0001 1111
-	//Bit8u masksrc2 = ~(0xff >> bitshiftin_srcr);//1110 0000
-	//Bit8u maskdest1 = (~(0xff << (8 - bitshiftin_destr)) & mask);//0000 0111 (when mask = FF)
-	//Bit8u maskdest2 = (~(0xff >> bitshiftin_destr) & mask);//1111 1000
-	PS55_WritePlaneDataWithBitmask(destvmemaddr, mask, srclatch1, srclatch2);
-
-	//for (int i = 0; i < 4; i++)
-	//{
-	//	// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
-	//	srclatch1.b[i] &= masksrc1;
-	//	srclatch2.b[i] &= masksrc2;
-	//	Bit16u srctemp16 = ((Bit16u)(srclatch1.b[i]) << 8) | srclatch2.b[i];
-	//	srctemp16 >>= bitshiftin_destr;
-	//	switch (ps55.bitblt.raster_op) {
-	//	case 0x00:	/* None */
-	//		//return (input & mask) | (vga.latch.d & ~mask);
-	//		destlatch1.b[i] &= ~maskdest1;
-	//		destlatch2.b[i] &= ~maskdest2;
-	//		destlatch1.b[i] |= (srctemp16 >> 8) & maskdest1;
-	//		destlatch2.b[i] |= srctemp16 & maskdest2;
-	//		break;
-	//	case 0x01:	/* AND */
-	//		//return (input | ~mask) & vga.latch.d;
-	//		destlatch1.b[i] &= (srctemp16 >> 8) | ~maskdest1;
-	//		destlatch2.b[i] &= srctemp16 | ~maskdest2;
-	//		break;
-	//	case 0x02:	/* OR */
-	//		//return (input & mask) | vga.latch.d;
-	//		destlatch1.b[i] |= (srctemp16 >> 8) & maskdest1;
-	//		destlatch2.b[i] |= srctemp16 & maskdest2;
-	//		break;
-	//	case 0x03:	/* XOR */
-	//		//return (input & mask) ^ vga.latch.d;
-	//		destlatch1.b[i] ^= (srctemp16 >> 8) & maskdest1;
-	//		destlatch2.b[i] ^= srctemp16 & maskdest2;
-	//		break;
-	//	}
-
-	//}
-	//((Bit32u*)vga.mem.linear)[destvmemaddr] = destlatch1.d;
-	//PS55_UpdatePixel(destvmemaddr, destlatch1);
-	//((Bit32u*)vga.mem.linear)[destvmemaddr + 1] = destlatch2.d;
-	//PS55_UpdatePixel(destvmemaddr + 1, destlatch2);
+	PS55_WritePlaneDataWithBitmask(destvmemaddr, mask, srclatch1, srclatch2, srclatch3, srclatch4);
 }
 void PS55_CopyPlaneDataWithBitmask(Bitu srcvmemaddr, Bitu destvmemaddr, Bit16u mask)
 {
@@ -618,153 +729,37 @@ void PS55_CopyPlaneDataWithBitmask(Bitu srcvmemaddr, Bitu destvmemaddr, Bit16u m
 	// 9 bits shift write to right
 	//           | 1000 0001  | 
 	//           | xxxx xxxx  | x100 0000 | 1xxx xxxx |
-	// 9 bits shift write to right
+	// 9 bits shift write to right (16)
 	//           | 1000 0001  | 1010 0101 |
 	//           | xxxx xxxx  | x1000 000 | 1101 0010 | 1xxx xxxx
-	//VGA_Latch srclatch1, srclatch2, destlatch1, destlatch2;
-
-	//if (ps55.bitblt.bitshift_destr == 0) destvmemaddr += 2;
-	////srcvmemaddr += ps55.bitblt.bitshift_srcr / 8;
-	////Bit8s bitshiftin_srcr = ps55.bitblt.bitshift_srcr % 8;
-	////destvmemaddr += ps55.bitblt.bitshift_destr / 8;
-	//Bit8s bitshiftin_destr = ps55.bitblt.bitshift_destr % 8;
-
-	//if (srcvmemaddr + 1 >= vga.vmemsize) return;
-	//if (destvmemaddr + 1 >= vga.vmemsize) return;
-
-	//srclatch1.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr];
-	//srclatch2.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 1];
-	//destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
-	//destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 1];
-	// ff mask  = 1111 1111
-	// mask     = 0111 1110
-	// 3 bit right ->
-	// rol mask = 1100 1111
-	// ff dest  = 0001 1111 1110 0000
-	// destmask = 0000 1111 1100 0000
-	//Bit8u masksrc1 = 0xff;
-	//Bit8u masksrc1 = 0xff;
-	//Bit8u masksrc2 = 0x00;
-	// Draft case 1
-	//mask = PS55_BitRRotate(mask, bitshiftin_destr);
-	//Bit8u maskrange1 = ~(0xff << (8 - bitshiftin_destr));//0001 1111
-	//Bit8u maskrange2 = ~(0xff >> bitshiftin_destr);//1110 0000
-	//Bit8u maskin1 = mask & maskrange1;//1100 1111 & 0001 1111
-	//Bit8u maskin2 = mask & maskrange2;//1100 1111 & 1110 0000
-	////if (destvmemaddr < 0x82) {
-	////	LOG_MSG("destvmemaddr:%08x mask: %02x", destvmemaddr, mask);
-	////	LOG_MSG("srclatch_d:  %08x %08x\tmasksrc_:  %02x %02x", srclatch1.d, srclatch2.d, masksrc1, masksrc2);
-	////	LOG_MSG("destlatch_d: %08x %08x\tmaskdest_: %02x %02x", destlatch1.d, destlatch2.d, maskdest1, maskdest2);
-	////}
-	////ps55.bitblt.raster_op = 1;
-	//for (int i = 0; i < 4; i++)
-	//{
-	//	// Clear vmem (vmem AND ~bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
-	//	//srclatch1.b[i] &= masksrc1;
-	//	//srclatch2.b[i] &= masksrc2;
-	//	Bit16u srctemp16 = ((Bit16u)(srclatch1.b[i]) << 8) | srclatch2.b[i];
-	//	srctemp16 >>= bitshiftin_destr;
-	//	//if(srctemp16 > 0xff) LOG_MSG("srctemp16: %x", srctemp16);
-	//	switch (ps55.bitblt.raster_op) {
-	//	case 0x00:	/* None */
-	//		//return (input & mask) | (vga.latch.d & ~mask);
-	//		destlatch1.b[i] &= ~maskin1;
-	//		destlatch2.b[i] &= ~maskin2;
-	//		destlatch1.b[i] |= (srctemp16 >> 8) & maskin1;
-	//		destlatch2.b[i] |= srctemp16 & maskin2;
-	//		break;
-	//	case 0x01:	/* AND */
-	//		//return (input | ~mask) & vga.latch.d;
-	//		destlatch1.b[i] &= (srctemp16 >> 8) | ~maskin1;
-	//		destlatch2.b[i] &= srctemp16 | ~maskin2;
-	//		break;
-	//	case 0x02:	/* OR */
-	//		//return (input & mask) | vga.latch.d;
-	//		destlatch1.b[i] |= (srctemp16 >> 8) & maskin1;
-	//		destlatch2.b[i] |= srctemp16 & maskin2;
-	//		break;
-	//	case 0x03:	/* XOR */
-	//		//return (input & mask) ^ vga.latch.d;
-	//		destlatch1.b[i] ^= (srctemp16 >> 8) & maskin1;
-	//		destlatch2.b[i] ^= srctemp16 & maskin2;
-	//		break;
-	//	}
-	//}
-	//draft case 2
-	//mask = PS55_BitRRotate(mask, bitshiftin_destr);
-	//Bit8u maskrange1 = ~(0xff << (8 - bitshiftin_destr));//0001 1111
-	//Bit8u maskrange2 = ~(0xff >> bitshiftin_destr);//1110 0000
-	//Bit8u maskin1 = mask ;//1100 1111 & 0001 1111
-	//Bit8u maskin2 = mask ;//1100 1111 & 1110 0000
-	//if (destvmemaddr < 0x82) {
-	//	LOG_MSG("destvmemaddr:%08x mask: %02x", destvmemaddr, mask);
-	//	LOG_MSG("srclatch_d:  %08x %08x\tmasksrc_:  %02x %02x", srclatch1.d, srclatch2.d, masksrc1, masksrc2);
-	//	LOG_MSG("destlatch_d: %08x %08x\tmaskdest_: %02x %02x", destlatch1.d, destlatch2.d, maskdest1, maskdest2);
-	//}
 	//ps55.bitblt.raster_op = 1;
-	VGA_Latch srclatch1, srclatch2;
+	VGA_Latch srclatch1, srclatch2, srclatch3, srclatch4;
 	//destvmemaddr--;
-	if (ps55.bitblt.bitshift_destr == 0) destvmemaddr += 2;
+	//if (ps55.bitblt.bitshift_destr % 8 == 0) destvmemaddr += 2;
 	//srcvmemaddr += ps55.bitblt.bitshift_srcr / 8;
+	 //srcvmemaddr += 2;
 	//Bit8s bitshiftin_srcr = ps55.bitblt.bitshift_srcr % 8;
 	//destvmemaddr += ps55.bitblt.bitshift_destr / 8;
-	mask = 0xffff;//debug
+	//mask = 0xffff;//debug
 
 	if (srcvmemaddr + 1 >= vga.vmemsize) return;
 	if (destvmemaddr + 1 >= vga.vmemsize) return;
+	srcvmemaddr &= 0xfffffffe;
 
-	srclatch1.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr];
+	//srclatch1.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr - 2];
+	//srclatch2.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr - 1];
+	//srclatch3.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 0];
+	//srclatch4.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 1];
+	srclatch1.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 0];
 	srclatch2.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 1];
+	srclatch3.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 2];
+	srclatch4.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 3];
 
-	PS55_WritePlaneDataWithBitmask(destvmemaddr, mask, srclatch1, srclatch2);
+	PS55_WritePlaneDataWithBitmask(destvmemaddr, mask, srclatch1, srclatch2, srclatch3, srclatch4);
 }
-//void PS55_CopyPlaneDataWithBitmask8(const Bitu srcvmemaddr, const Bitu destvmemaddr, Bit8u mask)
-//{
-//	// 2 bits shift to left
-//	//           | 1000 0001  |
-//	// xxxx xx10 | 00 0001 xx |
-//	// 2 bits shift to right
-//	//           | 1000 0001  |
-//	//           | xx 1000 00 | 01xx xxxx
-//	// 3 bits shift latch from right and 5 bits shift write to right
-//	//           | xxx1 0000 | 001x xxxx |
-//	//           | xxxx x100 | 00 001xxx | 
-//	VGA_Latch srclatch1, srclatch2, destlatch1, destlatch2;
-//	if (srcvmemaddr >= vga.vmemsize) return;
-//	if (destvmemaddr >= vga.vmemsize) return;
-//	srclatch1.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr];
-//	srclatch2.d = ((Bit32u*)vga.mem.linear)[srcvmemaddr + 1];
-//	destlatch1.d = ((Bit32u*)vga.mem.linear)[destvmemaddr];
-//	destlatch2.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 2];
-//
-//	ps55.bitblt.bitshift_destr;
-//	mask = PS55_BitRRotate(mask, ps55.bitblt.bitshift_destr);
-//	Bit8u masksrc1 = ~(0xff << (8 - ps55.bitblt.bitshift_srcr));//0001 1111
-//	Bit8u masksrc2 = ~(0xff >> ps55.bitblt.bitshift_srcr);//1110 0000
-//	Bit8u maskdest1 = (~(0xff << (8 - ps55.bitblt.bitshift_destr)) & mask);//0000 0111 (when mask = FF)
-//	Bit8u maskdest2 = (~(0xff >> ps55.bitblt.bitshift_destr) & mask);//1111 1000
-//
-//	for (int i = 0; i < 4; i++)
-//	{
-//		srclatch1.b[i] &= masksrc1;
-//		srclatch2.b[i] &= masksrc2;
-//		Bit16u srctemp16 = ((Bit16u)srclatch1.b[i] << 8) | srclatch2.b[i];
-//		srctemp16 >>= ps55.bitblt.bitshift_destr - ps55.bitblt.bitshift_srcr;
-//
-//		destlatch1.b[i] &= ~maskdest1;
-//		destlatch2.b[i] &= ~maskdest2;
-//		destlatch1.b[i] |= srctemp16 >> 8;
-//		destlatch2.b[i] |= srctemp16 & 0xff;
-//
-//	}
-//	((Bit32u*)vga.mem.linear)[destvmemaddr] = destlatch1.d;
-//	PS55_UpdatePixel(destvmemaddr, destlatch1);
-//	((Bit32u*)vga.mem.linear)[destvmemaddr + 1] = destlatch2.d;
-//	PS55_UpdatePixel(destvmemaddr + 1, destlatch2);
-//}
 void DisableGaijiRAMHandler()
 {
-	LOG_MSG("PS55_MemHnd: Page handler is restoring.");
+	//LOG_MSG("PS55_MemHnd: Page handler is restoring.");
 	//restore pagehandlers
 	for (Bitu j = 0; j < 32; j++)
 	{
@@ -775,16 +770,17 @@ void DisableGaijiRAMHandler()
 		}
 		else
 		{
-			LOG_MSG("PS55_MemHnd: Page handler not restored -");
+			//LOG_MSG("PS55_MemHnd: Page handler not restored -");
 		}
 	}
 	PAGING_ClearTLB();
 #ifdef _DEBUG//for PS/55 DA BitBLT operations
 	Bitu value32;
+	Bit64u value64;
 	if (ps55.mem_select == 0)
 	{
-		LOG_MSG("Line Length: %d %d\n", vga.draw.address_add, vga.config.scan_len);
-		LOG_MSG("BitBlt memory:\n");
+		//LOG_MSG("Line Length: %d %d\n", vga.draw.address_add, vga.config.scan_len);
+		//LOG_MSG("BitBlt memory:\n");
 		//for (int j = 0; j < PS55_BITBLT_MEMSIZE / 8; j++)
 		//{
 		//	int i = j * 8;
@@ -819,8 +815,20 @@ void DisableGaijiRAMHandler()
 				i += 5;
 				break;
 			case 0x99:
-				LOG_MSG("[%02x] %02x: %02x %02x %02x %02x %02x %02x", ps55.bitblt_ram[i], ps55.bitblt_ram[i + 1], ps55.bitblt_ram[i + 2], ps55.bitblt_ram[i + 3],
-					ps55.bitblt_ram[i + 4], ps55.bitblt_ram[i + 5], ps55.bitblt_ram[i + 6], ps55.bitblt_ram[i + 7]);
+				value64 = ps55.bitblt_ram[i + 7];
+				value64 <<= 8;
+				value64 = ps55.bitblt_ram[i + 6];
+				value64 <<= 8;
+				value64 = ps55.bitblt_ram[i + 5];
+				value64 <<= 8;
+				value64 |= ps55.bitblt_ram[i + 4];
+				value64 <<= 8;
+				value64 |= ps55.bitblt_ram[i + 3];
+				value64 <<= 8;
+				value64 |= ps55.bitblt_ram[i + 2];
+				ps55.bitblt_reg[ps55.bitblt_ram[i + 1]] = value64;
+				//LOG_MSG("[%02x] %02x: %02x %02x %02x %02x %02x %02x", ps55.bitblt_ram[i], ps55.bitblt_ram[i + 1], ps55.bitblt_ram[i + 2], ps55.bitblt_ram[i + 3],
+				//	ps55.bitblt_ram[i + 4], ps55.bitblt_ram[i + 5], ps55.bitblt_ram[i + 6], ps55.bitblt_ram[i + 7]);
 				i += 7;
 				break;
 			case 0x00:
@@ -863,18 +871,26 @@ void DisableGaijiRAMHandler()
 			PS55_GC_Index_Write(0x3ea, 0x0a, 1);
 			PS55_GCR_Write(0x0f);//0a Map Mask (set color)
 			//ps55.bitblt.bitshift_srcr = 0;
-			//ps55.bitblt.bitshift_srcr = ((ps55.bitblt_reg[0x3] >> 4) & 0xf);//set bit shift
-			//ps55.bitblt.bitshift_destr = 0;
-			ps55.bitblt.bitshift_destr = ((ps55.bitblt_reg[0x3] >> 4) & 0xf);//set bit shift
+			ps55.bitblt.bitshift_destr = 0;
+			ps55.bitblt.raster_op = 0;
+			for (int ga = 0; ga < 10; ga++)
+				for (int gb = 0; gb < 3; gb++)
+					//PS55_DrawColorWithBitmask(0x82 * 840 + ga * 0x82 + 127 + gb, 14, 0xffffffff);
+			//ps55.bitblt.bitshift_srcr = ((ps55.bitblt_reg[0x5] >> 8) & 0x1f);//set bit shift
+			//ps55.bitblt.bitshift_srcr = ((ps55.bitblt_reg[0x21] >> 0) & 0xff);//set bit shift
+			//ps55.bitblt.bitshift_srcr = 0;
+			ps55.bitblt.bitshift_destr = ((ps55.bitblt_reg[0x3] >> 4) & 0x0f);//set bit shift
 			//ps55.bitblt.bitshift_destr = 0;
 			ps55.bitblt.raster_op = ps55.bitblt_reg[0x0b] & 0x03;//01 AND, 03 XOR
-			ps55.bitblt.raster_op = 0;
-			LOG_MSG("bitblt bitshift: %02x", ps55.bitblt.bitshift_destr);
+			//ps55.bitblt.raster_op = 0;
+			//Bit32u bitmask = ps55.bitblt_reg[0x9];
+			//bitmask <<= 16;
+			//bitmask |= ps55.bitblt_reg[0x8];
 			//if (ps55.bitblt_reg[0x21] != 0x7a)
-			if (ps55.bitblt_reg[0xb] != 0x209
-)
-				;
-			else
+			//if (ps55.bitblt_reg[0xb] == 0x20b)
+			//if (ps55.bitblt_reg[0xb] != 0x209)
+			//	;
+			//else
 			if (ps55.bitblt_reg[0x5] == 0x48) {//Fill a rectangle (or draw a line)
 				Bitu destaddr_begin = ps55.bitblt_reg[0x29];
 				for (Bitu y = 0; y < ps55.bitblt_reg[0x35]; y++)
@@ -883,130 +899,48 @@ void DisableGaijiRAMHandler()
 					{
 						Bitu destaddr_now = destaddr_begin + x * 2 + y * vga.config.scan_len * 2;
 						////if (ps55.bitblt_reg[0x21] & 0x10) destaddr_now--;
-						////Clear masked vmem data
-						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
-						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
-						////vga.config.raster_op = 1;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
-						//if (x == 0) {
-						//	vga.config.raster_op = 1;//AND
-						//	mem_readb(destaddr_now + 0);
-						//	mem_writeb(destaddr_now + 0, ~(ps55.bitblt_reg[0x8] & 0xff));
-						//	mem_readb(destaddr_now + 1);
-						//	mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x8] >> 8));
-						//}
-						//else if (x == ps55.bitblt_reg[0x33] - 1) {
-						//	vga.config.raster_op = 1;//AND
-						//	mem_readb(destaddr_now + 0);
-						//	mem_writeb(destaddr_now + 0, ~ps55.bitblt_reg[0x9] & 0xff);
-						//	mem_readb(destaddr_now + 1);
-						//	mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x9] >> 8));
-						//}
-						//else {
-						//	vga.config.raster_op = 1;//Without ROP
-						//	mem_readb(destaddr_now + 0);
-						//	mem_writeb(destaddr_now + 0, 0x00);
-						//	mem_readb(destaddr_now + 1);
-						//	mem_writeb(destaddr_now + 1, 0x00);
-						//}
 						////Set color
 						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
 						//PS55_GCR_Write(ps55.bitblt_reg[0x0] & 0x0f);//0a Map Mask (set color)
 						//Transfer masked bitmap data to vmem
 						//vga.config.raster_op = 2;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
 						if (x == 0) {
-							//mem_readb(destaddr_now + 0);
-							//mem_writeb(destaddr_now + 0, ps55.bitblt_reg[0x8] & 0xff);
-							//mem_readb(destaddr_now + 1);
-							//mem_writeb(destaddr_now + 1, (ps55.bitblt_reg[0x8] >> 8));
-							//PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x8] & 0xff);
 							PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x8]);
-							//PS55_DrawColorWithBitmask(destaddr_now + 1, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x8] >> 8);
+							//PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, bitmask);
 						}
 						else if (x == ps55.bitblt_reg[0x33] - 1) {
-							//mem_readb(destaddr_now + 0);
-							//mem_writeb(destaddr_now + 0, ps55.bitblt_reg[0x9] & 0xff);
-							//mem_readb(destaddr_now + 1);
-							//mem_writeb(destaddr_now + 1, (ps55.bitblt_reg[0x9] >> 8));
-							//PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x9] & 0xff);
 							PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x9]);
-							//PS55_DrawColorWithBitmask(destaddr_now + 1, ps55.bitblt_reg[0x0] & 0x0f, ps55.bitblt_reg[0x9] >> 8);
+							//PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, bitmask);
 						}
 						else {
-							//mem_readb(destaddr_now + 0);
-							//mem_writeb(destaddr_now + 0, 0xff);
-							//mem_readb(destaddr_now + 1);
-							//mem_writeb(destaddr_now + 1, 0xff);
-							//PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, 0xff);
 							PS55_DrawColorWithBitmask(destaddr_now, ps55.bitblt_reg[0x0] & 0x0f, 0xffff);
-							//PS55_DrawColorWithBitmask(destaddr_now + 1, ps55.bitblt_reg[0x0] & 0x0f, 0xff);
 						}
 						//vga.config.raster_op = 0;
 						//if (GCC_UNLIKELY(destaddr + x + y * 0x82 >= vga.vmemsize)) break;//safety
-						//vga.mem.linear[destaddr + x * 2 + y * 0x82] = 0xcc;
-						//vga.mem.linear[destaddr + x * 2 + 1 + y * 0x82] = 0xcc;
-						//LOG_MSG("%02x: %04x", destaddr + x * 2 + y * 0x82, 0x04);
 					}
 				}
 			}
 			else if (ps55.bitblt_reg[0x5] == 0x1048 && ps55.bitblt_reg[0x3D] == 0x40) {//Tiling a rectangle (transfer tile data multiple times)
 				// First and Last: Clear vmem (vmem AND bit-mask), copy tile data, bit-masking it, and write it to vmem (vmem OR masked data)
-				// Middle: Copy entire tile data using latch
 				Bitu destaddr_begin = ps55.bitblt_reg[0x29];
 				Bitu tileaddr_begin = ps55.bitblt_reg[0x2B];
+				//destaddr_begin += (0x7c - ps55.bitblt_reg[0x22]);
+				//tileaddr_begin += (0x7c - ps55.bitblt_reg[0x21]);
 				for (Bitu y = 0; y < ps55.bitblt_reg[0x35]; y++)
 				{
 					for (Bitu x = 0; x < ps55.bitblt_reg[0x33]; x++)
 					{
 						Bitu destaddr_now = destaddr_begin + x * 2 + y * vga.config.scan_len * 2;
 						Bitu tileaddr_now = tileaddr_begin + (x * 2) % ps55.bitblt_reg[0x23] + (y * vga.config.scan_len * 2) % ps55.bitblt_reg[0x28];
-						//if (ps55.bitblt_reg[0x21] & 0x10) destaddr_now--;
-						////Clear masked vmem data
-						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
-						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
-						////vga.config.raster_op = 1;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
-						//vga.config.write_mode = 0;
-						//if (x == 0) {
-						//	vga.config.raster_op = 1;//AND
-						//	mem_readb(destaddr_now + 0);
-						//	mem_writeb(destaddr_now + 0, ~(ps55.bitblt_reg[0x8] & 0xff));
-						//	mem_readb(destaddr_now + 1);
-						//	mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x8] >> 8));
-						//}
-						//else if (x == ps55.bitblt_reg[0x33] - 1) {
-						//	vga.config.raster_op = 1;//AND
-						//	mem_readb(destaddr_now + 0);
-						//	mem_writeb(destaddr_now + 0, ~ps55.bitblt_reg[0x9] & 0xff);
-						//	mem_readb(destaddr_now + 1);
-						//	mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x9] >> 8));
-						//}
-						//else {
-						//	vga.config.raster_op = 0;
-						//	mem_writeb(destaddr_now + 0, 0x00);
-						//	mem_writeb(destaddr_now + 1, 0x00);
-						//}
-						////Enable to access all planes
-						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
-						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
-						//Transfer masked bitmap data to vmem
-						//vga.config.raster_op = 2;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
 						if (x == 0) {
-							//PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, ps55.bitblt_reg[0x8] & 0xff);
-							//PS55_CopyPlaneDataWithBitmask(tileaddr_now + 1, destaddr_now + 1, ps55.bitblt_reg[0x8] >> 8);
 							PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, ps55.bitblt_reg[0x8]);
+							////PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, bitmask);
 						}
 						else if (x == ps55.bitblt_reg[0x33] - 1) {
-							//PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, ps55.bitblt_reg[0x9] & 0xff);
-							//PS55_CopyPlaneDataWithBitmask(tileaddr_now + 1, destaddr_now + 1, ps55.bitblt_reg[0x9] >> 8);
 							PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, ps55.bitblt_reg[0x9]);
+							////PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, bitmask);
 						}
 						else {
-							//vga.config.write_mode = 1;//write latched data (ROP does nothing)
-							//mem_readb(tileaddr_now + 0);
-							//mem_writeb(destaddr_now + 0, 0xff);
-							//mem_readb(tileaddr_now + 1);
-							//mem_writeb(destaddr_now + 1, 0xff);
-							//PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, 0xff);
-							//PS55_CopyPlaneDataWithBitmask(tileaddr_now + 1, destaddr_now + 1, 0xff);
 							PS55_CopyPlaneDataWithBitmask(tileaddr_now, destaddr_now, 0xffff);
 						}
 					}
@@ -1017,61 +951,38 @@ void DisableGaijiRAMHandler()
 				// Middle: Copy entire tile data using latch
 				Bitu destaddr_begin = ps55.bitblt_reg[0x29];
 				Bitu srcaddr_begin = ps55.bitblt_reg[0x2A];
+				//destaddr_begin += (0xc - ps55.bitblt_reg[0x22] & 0xf);
+				//srcaddr_begin += (0xc - ps55.bitblt_reg[0x21] & 0xf);
+				//srcaddr_begin += 0;
+				//srcaddr_begin += ps55.bitblt_reg[0x33];
+				LOG_MSG("bitblt bitshift: %02x, dest: %08x src: %08x, mask: %04x", ps55.bitblt.bitshift_destr, destaddr_begin,srcaddr_begin, ps55.bitblt_reg[0x8]);
+				//ps55.bitblt_reg[0x33] = 0x10;
 				for (Bitu y = 0; y < ps55.bitblt_reg[0x35]; y++)
 				{
 					for (Bitu x = 0; x < ps55.bitblt_reg[0x33]; x++)
 					{
 						Bitu destaddr_now = destaddr_begin + x * 2 + y * vga.config.scan_len * 2;
 						Bitu srcaddr_now = srcaddr_begin + x * 2 + y * vga.config.scan_len * 2;
-						////if (ps55.bitblt_reg[0x21] & 0x10) destaddr_now--;
-						////Clear masked vmem data
-						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
-						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
-						////vga.config.raster_op = 1;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
-						//vga.config.write_mode = 0;
-						//if (x == 0) {
-						//	vga.config.raster_op = 1;//AND
-						//	//mem_readb(destaddr_now + 0);
-						//	//mem_writeb(destaddr_now + 0, ~(ps55.bitblt_reg[0x8] & 0xff));
-						//	//mem_readb(destaddr_now + 1);
-						//	//mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x8] >> 8));
-						//}
-						//else if (x == ps55.bitblt_reg[0x33] - 1) {
-						//	vga.config.raster_op = 1;//AND
-						//	//mem_readb(destaddr_now + 0);
-						//	//mem_writeb(destaddr_now + 0, ~ps55.bitblt_reg[0x9] & 0xff);
-						//	//mem_readb(destaddr_now + 1);
-						//	//mem_writeb(destaddr_now + 1, ~(ps55.bitblt_reg[0x9] >> 8));
-						//}
-						//else {
-						//	vga.config.raster_op = 0;
-						//	//mem_writeb(destaddr_now + 0, 0x00);
-						//	//mem_writeb(destaddr_now + 1, 0x00);
-						//}
-						////Enable to access all planes
-						//PS55_GC_Index_Write(0x3ea, 0x0a, 1);
-						//PS55_GCR_Write(0x0f);//0a Map Mask (set color)
-						//Transfer masked bitmap data to vmem
-						//vga.config.raster_op = 2;//05 Graphics mode (000x x000  00 = unmodified, 01 = AND, 10 = OR, 11 = XOR)
 						if (x == 0) {
-							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x8] & 0xff);
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, bitmask);
 							PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x8]);
-							//PS55_CopyPlaneDataWithBitmask(srcaddr_now + 1, destaddr_now + 1, ps55.bitblt_reg[0x8] >> 8);
 						}
+						//if (x == 1) {//for debug
+						//	ps55.bitblt.bitshift_destr = 0;
+						//	//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, bitmask);
+						//	//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x8]);
+						//	PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, 0xffff);
+						//}
 						else if (x == ps55.bitblt_reg[0x33] - 1) {
-							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x9] & 0xff);
+							//ps55.bitblt.bitshift_destr = 0;
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, bitmask);
 							PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x9]);
-							//PS55_CopyPlaneDataWithBitmask(srcaddr_now + 1, destaddr_now + 1, ps55.bitblt_reg[0x9] >> 8);
 						}
 						else {
+							//ps55.bitblt.bitshift_destr = 0;
 							//vga.config.write_mode = 1;//write latched data (ROP does nothing)
-							//mem_readb(srcaddr_now + 0);
-							//mem_writeb(destaddr_now + 0, 0xff);
-							//mem_readb(srcaddr_now + 1);
-							//mem_writeb(destaddr_now + 1, 0xff);
-							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, 0xff);
 							PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, 0xffff);
-							//PS55_CopyPlaneDataWithBitmask(srcaddr_now + 1, destaddr_now + 1, 0xff);
+							//PS55_CopyPlaneDataWithBitmask(srcaddr_now, destaddr_now, ps55.bitblt_reg[0x9]);
 						}
 					}
 				}
@@ -1083,13 +994,12 @@ void DisableGaijiRAMHandler()
 			}
 			//memset(ps55.bitblt_reg, 0xfe, 0x3f * sizeof(Bitu));
 		}
-		LOG_MSG(" ");
 	}
 #endif
 }
 void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
-	//if (len == 2) LOG_MSG("PS55: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-	//else LOG_MSG("PS55: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+	if (len == 2) LOG_MSG("PS55: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+	else LOG_MSG("PS55: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
 	if (ps55.prevdata != NOAHDATA && len == 1)
 	{
 		val <<= 8;
@@ -1101,7 +1011,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		ps55.prevdata = val;
 	switch (port) {
 	case 0x3e1://?
-		LOG_MSG("PS55_IOCTL: Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d)", port, ps55.idx_3e1, ps55.p3e1_reg[ps55.idx_3e1], ps55.p3e1_reg[ps55.idx_3e1], val, val);
+		//LOG_MSG("PS55_IOCTL: Write to port %x, idx %x, val %02xh (%d) -> %02xh (%d)", port, ps55.idx_3e1, ps55.p3e1_reg[ps55.idx_3e1], ps55.p3e1_reg[ps55.idx_3e1], val, val);
 		if (ps55.idx_3e1 < 0x20) ps55.p3e1_reg[ps55.idx_3e1] = val;//save value for 0x1f function
 		switch (ps55.idx_3e1) {
 		case 0x00:
@@ -1502,8 +1412,8 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 }
 
 void PS55_GC_Index_Write(Bitu port, Bitu val, Bitu len) {
-	//if (len == 2) LOG_MSG("PS55_GC: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-	//else LOG_MSG("PS55_GC: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+	if (len == 2) LOG_MSG("PS55_IDX: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+	else LOG_MSG("PS55_IDX: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
 	Bitu data = 0;
 	if (len == 2) {//data addr
 		data = val >> 8 ;
