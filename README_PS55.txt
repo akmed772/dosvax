@@ -105,7 +105,7 @@ Q. Does this have compatibility with the Multistation 5550 (known as IBM 5550 ou
 A. I've never use the Multistation 5550, but I guess PS/55 Japanese DOS is designed to run 5550 applications. Low-level softwares such as operating systems may not run.
 
 Q. Can this emulator run Windows 3.x?
-A. No. Windows uses a graphics mode, but the emulator doesn't support it
+A. They will run in the standard mode (WIN /S), but are still buggy.
 
 Q. Can this emulator run OS/2 J1.x?
 A. Maybe not. DOSBox doesn't emulate the drive controller and the 286 protected mode, so it cannot run OS/2.
