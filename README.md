@@ -10,20 +10,19 @@ GNU GPLv2 if there is no statement in the document or source code. See also ABOU
 
 This is an emulator that reproduces the AX specification personal computer commonly called the Japanese PC/AT compatible machine. It is a folk of DOSBox, and is possible to run IBM PC software and DOS/V, but the goal is to run applications developed for AX machines. Please prepare the Japanese MS-DOS for AX. The BIOS ROM is not required, but you need to make Japanese FONTX2 font files to display Japanese characters.
 
-Also, it experimentally implements the PS/55 emulation equivalent to the IBM Japan PS/55 model 5550-S/T/V. (PS/55 was developed aside from the AX, so there is no compatibility in architectures.)
+Also, it experimentally implements the PS/55 emulation equivalent to the IBM Japan PS/55 model 5550-S/T/V. (PS/55 was developed aside from the AX, so there is no compatibility between those architectures.)
 
 ### Features (AX)
 
-* Implement Japanese text / graphic functions equivalent to the AX-1 system specification
-* Support Japanese-English mode switching (bilingual)
+* Japanese text / graphic emulation equivalent to the AX-1 system specification.
+* Support switching between Japanese (AX) and English (PC/AT) mode.
 * Assign additional keys specific to the AX keyboard
 
 ### Unsupported / Limitations (AX)
 
-* AX-2 extensions (text graphics superimposition)
+* AX-2 extensions (text-on-graphics superimposition)
 * User-defined characters using bank switching
-* Additional functions of the printer BIOS
-* Incomplete implementation of Kana shift lock
+* Extended printer BIOS
 * Incomplete support for Japanese 106 keyboard due to the limitation of the component (SDL 1.2) on which DOSBox depends.
 * MOUSE.SYS of MS-DOS 3.21 cannot work because DOSBox doesn't support the bus mouse. Use MOUSE.COM of IBM DOS J4.0/V and later.
 
@@ -76,7 +75,7 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 * Build 4483PS14 (2024/01/18)
   - Added a BitBlt operation to run Windows 3.0 (IBMJ OEM) in the standard mode with its PS/55 high-resolution display driver. (though it displays incorrect text color in Windows 3.1)
   - Added some debug commands, VRAMDUMP (video memory dump), PLTDUMP (palette dump) and BLTDUMP (bitblt regs log dump).
-  - Fix an issue that the PS/55 text mode initialization in the Video BIOS clear memory outside attribute buffer.
+  - Fix an issue that the PS/55 text mode initialization in the Video BIOS clears memory outside attribute buffer.
   - Fix an issue that the screen glitches when the PS/55 display adapter is re-activated.
 * Build 4483PS13 (2023/12/20)
   - Correct text blinking in the JEGA drawing function.
