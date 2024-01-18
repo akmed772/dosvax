@@ -576,7 +576,7 @@ void DisableGaijiRAMHandler()
 		}
 	}
 	PAGING_ClearTLB();
-#ifdef _DEBUG//for PS/55 DA BitBLT operations
+	//for PS/55 DA BitBLT operations
 	Bitu value32;
 	Bit64u value64;
 	if (ps55.mem_select == 0)
@@ -643,15 +643,15 @@ void DisableGaijiRAMHandler()
 		//[89] 20: 0001 (1) then execute payload and clear it
 		if (ps55.bitblt.reg[0x20] & 0x1)
 		{
-#ifdef _DEBUG
+#if C_DEBUG
 			//begin for debug
-			for (i = 0; i < 0x40; i++) {
+			for (i = 0; i < PS55_DEBUG_BITBLT_SIZE; i++) {
 				//if(ps55.bitblt.reg[i] != 0xfefe && ps55.bitblt.reg[i] != 0xfefefefe) LOG_MSG("%02x: %04x (%d)",i, ps55.bitblt.reg[i], ps55.bitblt.reg[i]);
 			}
-			for (i = 0; i < 0x40; i++) {
-				ps55.bitblt.debug_reg[ps55.bitblt.debug_reg_ip][i] = ps55.bitblt.reg[i];
+			for (i = 0; i < PS55_DEBUG_BITBLT_SIZE; i++) {
+				ps55.bitblt.debug_reg[PS55_DEBUG_BITBLT_SIZE * ps55.bitblt.debug_reg_ip + i] = ps55.bitblt.reg[i];
 			}
-			ps55.bitblt.debug_reg[ps55.bitblt.debug_reg_ip][0x40] = ps55.data3ea_0b;
+			ps55.bitblt.debug_reg[PS55_DEBUG_BITBLT_SIZE * (ps55.bitblt.debug_reg_ip + 1) - 1] = ps55.data3ea_0b;
 			ps55.bitblt.debug_reg_ip++;
 			//end for debug
 #endif
@@ -761,7 +761,6 @@ void DisableGaijiRAMHandler()
 			}
 		}
 	}
-#endif
 }
 void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 	//if (len == 2) LOG_MSG("PS55: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
@@ -1150,7 +1149,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x1a://Cursor color
 #ifdef C_HEAVY_DEBUG
 			if ((ps55.cursor_color & 0x0f) ^ (data & 0x0f)) {
-				LOG_MSG("PS55_ATTR: The cursor color has been changed to %02xh (%d)", data & 0x0f, data & 0x0f);
+				//LOG_MSG("PS55_ATTR: The cursor color has been changed to %02xh (%d)", data & 0x0f, data & 0x0f);
 			}
 #endif
 			ps55.cursor_color = data & 0x0f;
@@ -1158,7 +1157,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x1b://Cursor blinking speed
 #ifdef C_HEAVY_DEBUG
 			if (ps55.cursor_options ^ data) {
-				LOG_MSG("PS55_ATTR: The cursor option has been changed to %02xh (%d)", data, data);
+				//LOG_MSG("PS55_ATTR: The cursor option has been changed to %02xh (%d)", data, data);
 			}
 #endif
 			ps55.cursor_options = data;
@@ -1651,6 +1650,7 @@ void PS55_WakeUp(void) {
 	//IO_RegisterReadHandler(0x3ef, read_p3c0, IO_MB); // for PS/55
 	//IO_RegisterReadHandler(0x3ee, read_p3c1, IO_MB); // for PS/55
 
+	vga.vmemsize = 512 * 1024;
 	DetermineMode_PS55();
 	LOG_MSG("PS/55 wakes up!!");
 }
@@ -1660,6 +1660,9 @@ void SVGA_Setup_PS55(void) {
 	ps55.prevdata = NOAHDATA;
 	ps55.nextret = NOAHDATA;
 	ps55.gaiji_ram = new Bit8u[256 * 1024];//256 KB for Gaiji RAM
+#if C_DEBUG
+	ps55.bitblt.debug_reg = new Bitu[65536 * PS55_DEBUG_BITBLT_SIZE];
+#endif
 	//ps55.font_da1 = new Bit8u[1536 * 1024];//1024 KB for Display Adapter (I) Font ROM
 	//memset(ps55.font_da1, 0x00, 1536 * 1024);
 	//generate_DA1Font();
@@ -1693,5 +1696,5 @@ void SVGA_Setup_PS55(void) {
 	svga.get_clock = &GetClock_PS55;
 	svga.accepts_mode = &AcceptsMode_PS55;
 
-	vga.vmemsize = 512 * 1024; // Cannot figure out how this is supposed to work for the real card
+	vga.vmemsize = 512 * 1024; // equivalent to DAIV without 256 color support (Memory Expansion Kit)
 }

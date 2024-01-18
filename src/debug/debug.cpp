@@ -1143,14 +1143,14 @@ bool ParseCommand(char* str) {
 		}
 
 		for (Bitu y = 0; y < PS55_DEBUG_BITBLT_SIZE; y++) {
-			if (ps55.bitblt.debug_reg[ps55.bitblt.debug_reg_ip - 1][y] != 0xfefefefe)
+			if (ps55.bitblt.debug_reg[(ps55.bitblt.debug_reg_ip - 1) * PS55_DEBUG_BITBLT_SIZE + y] != 0xfefefefe)
 				fprintf(f, "\"%02X\"\t", y);
 		}
 		fprintf(f, "\n");
 		for (Bitu x = 0; x < ps55.bitblt.debug_reg_ip; x++) {
 			for (Bitu y = 0; y < PS55_DEBUG_BITBLT_SIZE; y++) {
-				if(ps55.bitblt.debug_reg[ps55.bitblt.debug_reg_ip - 1][y] != 0xfefefefe)
-					fprintf(f, "\"%X\"\t", ps55.bitblt.debug_reg[x][y]);
+				if(ps55.bitblt.debug_reg[x * PS55_DEBUG_BITBLT_SIZE + y] != 0xfefefefe)
+					fprintf(f, "\"%X\"\t", ps55.bitblt.debug_reg[x * PS55_DEBUG_BITBLT_SIZE + y]);
 			}
 			fprintf(f, "\n");
 		}

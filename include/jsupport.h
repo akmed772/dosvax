@@ -14,7 +14,7 @@ Bit16u SJIStoIBMJ(Bit16u knj);
 Bit16u IBMJtoSJIS(Bit16u knj);
 
 //extern Bit16u jfont_sbcs_24[SBCS24_LEN];//256 * 24 * (16 bit)
-extern Bit8u ps55font_24[DBCS24_LEN];//65536 * 24 * (24 bit)
+extern Bit8u* ps55font_24;//65536 * 24 * (24 bit)
 extern Bit8u jfont_sbcs_19[SBCS19_LEN];//256 * 19( * 8 bit)
 extern Bit8u jfont_dbcs_16[DBCS16_LEN];//65536 * 16 * (16 bit)
 

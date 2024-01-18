@@ -34,8 +34,10 @@ typedef struct {
 
 	Bit8u payload[PS55_BITBLT_MEMSIZE];
 	Bitu reg[PS55_BITBLT_REGSIZE];
-	Bitu debug_reg[65536][PS55_DEBUG_BITBLT_SIZE];//for debug
+#if C_DEBUG
+	Bitu* debug_reg;//for debug
 	Bit16u debug_reg_ip = 0;//for debug
+#endif
 } PS55_bitblt;
 
 struct PS55Registers {

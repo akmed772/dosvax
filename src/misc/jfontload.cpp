@@ -21,7 +21,7 @@ using namespace std;
 Bit8u jfont_sbcs_19[SBCS19_LEN];//256 * 19( * 8 bit)
 Bit8u jfont_dbcs_16[DBCS16_LEN];//65536 * 16 * (16 bit)
 //Bit16u jfont_sbcs_24[SBCS24_LEN];//256 * 24 * (16 bit)
-Bit8u ps55font_24[DBCS24_LEN];//65536 * 24 * (24 bit)
+Bit8u* ps55font_24;//65536 * 24 * (24 bit)
 
 typedef struct {
     char id[ID_LEN];
@@ -579,6 +579,7 @@ void JFONT_Init(Section_prop * section) {
 	std::string file_name;
 	Prop_path* pathprop = section->Get_path("jfontsbcs");
 	//initialize memory array
+	ps55font_24 = new Bit8u[DBCS24_LEN];
 	memset(jfont_sbcs_19, 0xff, SBCS19_LEN);
 	memset(jfont_dbcs_16, 0xff, DBCS16_LEN);
 	memset(ps55font_24, 0xff, DBCS24_LEN);
