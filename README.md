@@ -74,8 +74,10 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 * Build 4483PS14 (2024/01/18)
+  - Added a BitBlt operation to run Windows 3.0 (IBMJ OEM) in the standard mode with its PS/55 high-resolution display driver. (though it displays incorrect text color in Windows 3.1)
+  - Added some debug commands, VRAMDUMP (video memory dump), PLTDUMP (palette dump) and BLTDUMP (bitblt regs log dump).
   - Fix an issue that the PS/55 text mode initialization in the Video BIOS clear memory outside attribute buffer.
-  - Added a BitBlt operation to run Windows 3.0 (IBMJ OEM) in the standard mode with the PS/55 high-resolution display driver. (this is buggy for Windows 3.1)
+  - Fix an issue that the screen glitches when the PS/55 display adapter is re-activated.
 * Build 4483PS13 (2023/12/20)
   - Correct text blinking in the JEGA drawing function.
   - Add a new key bind that shows a dialog to mount a floppy image during the emulator is in operation. (experimental)
