@@ -540,7 +540,7 @@ static Bitu INT13_DiskHandler(void) {
 				reg_ch = 79;//cyl (Bit 7-0)
 				////1 x DSHD 5.25" drive attached
 				//reg_ax = 0;
-				//reg_bx = 0x0002;//DSHD 3.5"
+				//reg_bx = 0x0002;//DSHD 5.25"
 				//reg_dl = 0x02;//attached drives
 				//reg_dh = 0x01;//max head
 				//reg_cl = 15;//bit 7-6: cyl (Bit 9,8), bit 5-0: max sector

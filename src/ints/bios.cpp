@@ -792,7 +792,7 @@ static Bitu INT15_Handler(void) {
 				mem_writeb(data + 2, 0xF8);					// Model ID (PS/2 and PS/55)
 				mem_writeb(data + 3, 0x07);					// Submodel ID (Model 5551)
 				mem_writeb(data + 4, 0x04);					// Bios Revision
-				mem_writeb(data + 5, (1 << 6) | (1 << 5) | (1 << 4) | (0 << 1));	// Feature Byte 1
+				mem_writeb(data + 5, (1 << 6) | (1 << 5) | (1 << 4) | (1 << 1));	// Feature Byte 1
 			}
 			else {
 				mem_writeb(data+2,0xFC);					// Model ID (PC)

@@ -111,6 +111,8 @@
 #define BIOS_DEFAULT_IRQ2_LOCATION		(RealMake(0xf000,0xff55))
 #define BIOS_DEFAULT_RESET_LOCATION		(RealMake(0xf000,(machine==MCH_PCJR)?0x0043:0xe05b))
 
+#define BIOS_INT1E_DISKETTE_PARAMETERS	(RealMake(0xf000,0xefc7))
+
 /* maximum of scancodes handled by keyboard bios routines */
 #define MAX_SCAN_CODE 0x7f //for AX
 

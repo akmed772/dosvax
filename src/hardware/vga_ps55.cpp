@@ -997,14 +997,14 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		PS55_GCR_Write(val);
 		break;
 	case 0x3ec://used by Windows 3.1 display driver
-		if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-		else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+		//if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+		//else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
 		val >>= 8;
 		PS55_GCR_Write(val);
 		break;
 	case 0x3ed://used by Windows 3.1 display driver
-		if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-		else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+		//if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+		//else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
 		ps55.idx_3eb = 05;
 		PS55_GCR_Write(val);
 		break;
@@ -1032,21 +1032,21 @@ void PS55_GCR_Write(Bitu val)
 {
 	switch (ps55.idx_3eb) {
 	case 0x00://Set/Reset
-		if(ps55.set_reset != val) LOG_MSG("PS55_GC: Set/Reset (00h) val %02xh (%d) -> %02xh (%d)", ps55.set_reset, ps55.set_reset, val, val);
+		//if(ps55.set_reset != val) LOG_MSG("PS55_GC: Set/Reset (00h) val %02xh (%d) -> %02xh (%d)", ps55.set_reset, ps55.set_reset, val, val);
 		ps55.set_reset = val;
 		ps55.full_set_reset_low = FillTable[val & 0x0f];
 		ps55.full_set_reset_high = FillTable[(val >> 4) & 0x0f];
 		PS55_SetupSetResetRegisters();
 		break;
 	case 0x01://Enable Set/Reset
-		if(ps55.enable_set_reset != val) LOG_MSG("PS55_GC: Enable Set/Reset (01h) val %02xh (%d) -> %02xh (%d)", ps55.enable_set_reset, ps55.enable_set_reset, val, val);
+		//if(ps55.enable_set_reset != val) LOG_MSG("PS55_GC: Enable Set/Reset (01h) val %02xh (%d) -> %02xh (%d)", ps55.enable_set_reset, ps55.enable_set_reset, val, val);
 		ps55.enable_set_reset = val;
 		ps55.full_enable_set_reset_low = FillTable[val & 0x0f];
 		ps55.full_enable_set_reset_high = FillTable[(val >> 4) & 0x0f];
 		PS55_SetupSetResetRegisters();
 		break;
 	case 0x03://Data Rotate
-		if(ps55.data_rotate != val) LOG_MSG("PS55_GC: Data Rotate (03h) val %02xh (%d) -> %02xh (%d)", ps55.data_rotate, ps55.data_rotate, val, val);
+		//if(ps55.data_rotate != val) LOG_MSG("PS55_GC: Data Rotate (03h) val %02xh (%d) -> %02xh (%d)", ps55.data_rotate, ps55.data_rotate, val, val);
 		ps55.data_rotate = val & 0x0f;
 		break;
 	case 0x04://Read Map Select
@@ -1079,7 +1079,7 @@ void PS55_GCR_Write(Bitu val)
 	case 0x0b://Command (must be 08h according to the IBM reference) but J-DOS uses 0Bh, Windows 3.1 uses 00h
 			  // 08 0000 1000
 			  // 0B 0000 1011
-		if (ps55.data3ea_0b != val) LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d) -> %02xh (%d)", ps55.data3ea_0b, ps55.data3ea_0b, val, val);
+		//if (ps55.data3ea_0b != val) LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d) -> %02xh (%d)", ps55.data3ea_0b, ps55.data3ea_0b, val, val);
 		vga.config.raster_op = val & 3;//?
 		ps55.data3ea_0b = val;//for debug
 		break;
@@ -1087,15 +1087,8 @@ void PS55_GCR_Write(Bitu val)
 		// 00 08 40 41 42 43
 		// 42 text in  DOS J4.0
 		//43 text in Win 3.1
-		//vga.config.raster_op = val & 3;//?
-		//if(val != 0x40)
-		LOG_MSG("PS55_GC: Graphics Mode (05h) val %02xh (%d)", val, val);
-		if ((val & 0x03) == 2) val -= 1 ;
-		//if ((val & 0x03) == 3) val -= 3;
-		//val &= 0xf0;
-		//val ^= 0x03;
-		//val &= 0x03;
-		//val >>= 1;
+		//LOG_MSG("PS55_GC: Graphics Mode (05h) val %02xh (%d)", val, val);
+		if ((val & 0x03) == 2) val -= 1 ;//? for DOS J4.0 MODE 4 graphics
 		//through!!!
 	default:
 		//LOG_MSG("PS55_3E5(VGA_GC): Write to idx %x, val %04xh (%d)", ps55.idx_3eb, val, val);
@@ -1294,12 +1287,11 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 		default:
 			break;
 		}
-		LOG_MSG("PS55_FONT: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e3, len, ret);
+		//LOG_MSG("PS55_FONT: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e3, len, ret);
 		break;
 	case 0x3e5://CRT Controller Registers (undocumented)
-		
 		ret = ps55.crtc_reg[ps55.idx_3e5 & 0x1f];
-		LOG_MSG("PS55_CRTC: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e5, len, ret);
+		//LOG_MSG("PS55_CRTC: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e5, len, ret);
 		break;
 	case 0x3e9://Attribute Controller Registers (undocumented)
 		switch (ps55.idx_3e8 & 0x1f) {
@@ -1355,12 +1347,12 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 			break;
 		default:
 			ret = read_p3cf(port, len);
-			LOG_MSG("PS55_GC: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3eb, len, ret);
+			//LOG_MSG("PS55_GC: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3eb, len, ret);
 			break;
 		}
 		break;
 	default:
-		LOG_MSG("PS55: Read from port %x, len %x, ret %x", port, len, ret);
+		//LOG_MSG("PS55: Read from port %x, len %x, ret %x", port, len, ret);
 		break;
 	}
 	if (len == 1 && ps55.nextret == NOAHDATA) {
@@ -1677,8 +1669,6 @@ void SVGA_Setup_PS55(void) {
 	if (ps55.palette_mono) ps55.data3e1_03 &= 0x7f;
 
 	IO_RegisterWriteHandler(0x74, &write_p74, IO_MB | IO_MW);
-	//IO_RegisterReadHandler(0x94, &read_p94, IO_MB);
-	//IO_RegisterWriteHandler(0x96, &write_p96, IO_MB);
 	IO_RegisterReadHandler(0x76, &read_p76, IO_MB);
 	IO_RegisterWriteHandler(0x94, &write_p94, IO_MB);
 	IO_RegisterReadHandler(0x94, &read_p94, IO_MB);
