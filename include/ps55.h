@@ -6,15 +6,18 @@ This content is under the MIT License.
 
 #pragma once
 //Prepro **need to modify!!!**
+#include "vga.h"
 //#define VGA_PAGE_PS55TEXT  (0xE0000/4096)
 #define NOAHDATA 0xAAAAC
 #define GAIJI_RAMBASE (0xA0000/4096)
-#define PS55_BITBLT_MEMSIZE 0x60
+#define PS55_BITBLT_MEMSIZE 0x80
+#define PS55_BITBLT_REGSIZE 0x40
+#define PS55_DEBUG_BITBLT_SIZE 0x41
 
 #define IS_MODE_PS55TEXT (vga.mode == M_PS55_TEXT)
 
 void PS55_WakeUp(void);
-void PS55_ShutDown(void);
+void PS55_Suspend(void);
 Bit16u SJIStoIBMJ(Bit16u knj);
 
 struct MCARegisters {
@@ -28,6 +31,11 @@ struct MCARegisters {
 typedef struct {
 	Bit8s bitshift_destr;
 	Bit8u raster_op;
+
+	Bit8u payload[PS55_BITBLT_MEMSIZE];
+	Bitu reg[PS55_BITBLT_REGSIZE];
+	Bitu debug_reg[65536][PS55_DEBUG_BITBLT_SIZE];//for debug
+	Bit16u debug_reg_ip = 0;//for debug
 } PS55_bitblt;
 
 struct PS55Registers {
@@ -51,10 +59,6 @@ struct PS55Registers {
 	Bit8u palette_line;
 	Bit8u attr_mode = 0;//3e8 1d
 	Bit8u* gaiji_ram;
-	Bit8u bitblt_ram[PS55_BITBLT_MEMSIZE];
-	Bitu bitblt_reg[0x3f];
-	Bitu debug_bitblt_reg[65536][0x3f];//for debug
-	Bit16u debug_bitblt_reg_ip = 0;//for debug
 	//Bit8u* font_da1; for DA1
 	Bit8u mem_conf = 0x2b;//3e3 00
 	Bit8u data3e3_08 = 0;//3e3 08
@@ -81,6 +85,7 @@ struct PS55Registers {
 	Bit8u bit_mask_low;
 	Bit8u bit_mask_high;
 	Bit8u map_mask;
+	Bit8u data3ea_0b;//???? unknown GC register
 	Bit32u full_map_mask_low;
 	Bit32u full_not_map_mask_low;
 	Bit32u full_map_mask_high;
@@ -95,6 +100,7 @@ struct PS55Registers {
 	Bit32u full_not_enable_set_reset_high;
 	Bit32u full_enable_set_reset_high;
 	Bit32u full_enable_and_set_reset_high;
+	VGA_Latch latchw1, latchw2;
 	//for backup VGA register
 	Bit8u vga_crtc_overflow;
 	Bitu vga_config_line_compare;
