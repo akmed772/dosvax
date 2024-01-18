@@ -997,14 +997,14 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		PS55_GCR_Write(val);
 		break;
 	case 0x3ec://used by Windows 3.1 display driver
-		//if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-		//else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+		if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+		else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
 		val >>= 8;
 		PS55_GCR_Write(val);
 		break;
 	case 0x3ed://used by Windows 3.1 display driver
-		//if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-		//else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+		if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
+		else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
 		ps55.idx_3eb = 05;
 		PS55_GCR_Write(val);
 		break;
@@ -1032,20 +1032,21 @@ void PS55_GCR_Write(Bitu val)
 {
 	switch (ps55.idx_3eb) {
 	case 0x00://Set/Reset
-		//LOG_MSG("PS55_GC: Set/Reset (00h) val %02xh (%d) -> %02xh (%d)", ps55.set_reset, ps55.set_reset, val, val);
-		ps55.set_reset = val & 0x0f;
+		if(ps55.set_reset != val) LOG_MSG("PS55_GC: Set/Reset (00h) val %02xh (%d) -> %02xh (%d)", ps55.set_reset, ps55.set_reset, val, val);
+		ps55.set_reset = val;
 		ps55.full_set_reset_low = FillTable[val & 0x0f];
 		ps55.full_set_reset_high = FillTable[(val >> 4) & 0x0f];
 		PS55_SetupSetResetRegisters();
 		break;
 	case 0x01://Enable Set/Reset
-		//LOG_MSG("PS55_GC: Enable Set/Reset (01h) val %02xh (%d) -> %02xh (%d)", ps55.enable_set_reset, ps55.enable_set_reset, val, val);
-		ps55.enable_set_reset = val & 0x0f;
+		if(ps55.enable_set_reset != val) LOG_MSG("PS55_GC: Enable Set/Reset (01h) val %02xh (%d) -> %02xh (%d)", ps55.enable_set_reset, ps55.enable_set_reset, val, val);
+		ps55.enable_set_reset = val;
 		ps55.full_enable_set_reset_low = FillTable[val & 0x0f];
 		ps55.full_enable_set_reset_high = FillTable[(val >> 4) & 0x0f];
 		PS55_SetupSetResetRegisters();
 		break;
 	case 0x03://Data Rotate
+		if(ps55.data_rotate != val) LOG_MSG("PS55_GC: Data Rotate (03h) val %02xh (%d) -> %02xh (%d)", ps55.data_rotate, ps55.data_rotate, val, val);
 		ps55.data_rotate = val & 0x0f;
 		break;
 	case 0x04://Read Map Select
@@ -1058,27 +1059,27 @@ void PS55_GCR_Write(Bitu val)
 			  //do nothing
 		break;
 	case 0x08://Bit Mask (Low)
-		//LOG_MSG("PS55_GC: Bit Mask Low (08h) val %02xh (%d) -> %02xh (%d)", ps55.bit_mask_low, ps55.bit_mask_low, val, val);
+		//if (ps55.bit_mask_low != val) LOG_MSG("PS55_GC: Bit Mask Low (08h) val %02xh (%d) -> %02xh (%d)", ps55.bit_mask_low, ps55.bit_mask_low, val, val);
 		ps55.bit_mask_low = val & 0xff;
 		ps55.full_bit_mask_low = ExpandTable[val & 0xff];
 		break;
 	case 0x09://Bit Mask (High)
-		//LOG_MSG("PS55_GC: Bit Mask High (09h) val %02xh (%d) -> %02xh (%d)", ps55.bit_mask_high, ps55.bit_mask_high, val, val);
+		//if (ps55.bit_mask_high != val) LOG_MSG("PS55_GC: Bit Mask High (09h) val %02xh (%d) -> %02xh (%d)", ps55.bit_mask_high, ps55.bit_mask_high, val, val);
 		ps55.bit_mask_high = val & 0xff;
 		ps55.full_bit_mask_high = ExpandTable[val & 0xff];
 		break;
 	case 0x0a://Map Mask
-		//LOG_MSG("PS55_GC: Map Mask (0Ah) val %02xh (%d) -> %02xh (%d)", ps55.map_mask, ps55.map_mask, val, val);
-		ps55.map_mask = val & 0x0f;//256 color does not support
+		//if(ps55.map_mask != val) LOG_MSG("PS55_GC: Map Mask (0Ah) val %02xh (%d) -> %02xh (%d)", ps55.map_mask, ps55.map_mask, val, val);
+		ps55.map_mask = val;
 		ps55.full_map_mask_low = FillTable[val & 0x0f];
 		ps55.full_not_map_mask_low = ~ps55.full_map_mask_low;
-		ps55.full_map_mask_high = FillTable[(val >> 4) & 0x0f];
+		ps55.full_map_mask_high = FillTable[(val >> 4) & 0x0f];//256 color does not support
 		ps55.full_not_map_mask_high = ~ps55.full_map_mask_high;
 		break;
 	case 0x0b://Command (must be 08h according to the IBM reference) but J-DOS uses 0Bh, Windows 3.1 uses 00h
 			  // 08 0000 1000
 			  // 0B 0000 1011
-		//LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d) -> %02xh (%d)", ps55.data3ea_0b, ps55.data3ea_0b, val, val);
+		if (ps55.data3ea_0b != val) LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d) -> %02xh (%d)", ps55.data3ea_0b, ps55.data3ea_0b, val, val);
 		vga.config.raster_op = val & 3;//?
 		ps55.data3ea_0b = val;//for debug
 		break;
@@ -1088,8 +1089,8 @@ void PS55_GCR_Write(Bitu val)
 		//43 text in Win 3.1
 		//vga.config.raster_op = val & 3;//?
 		//if(val != 0x40)
-		//LOG_MSG("PS55_GC: Graphics Mode (05h) val %02xh (%d)", val, val);
-		//if ((val & 0x03) == 2) val -= 1 ;
+		LOG_MSG("PS55_GC: Graphics Mode (05h) val %02xh (%d)", val, val);
+		if ((val & 0x03) == 2) val -= 1 ;
 		//if ((val & 0x03) == 3) val -= 3;
 		//val &= 0xf0;
 		//val ^= 0x03;
@@ -1671,7 +1672,7 @@ void SVGA_Setup_PS55(void) {
 	//memset(ps55.font_da1, 0x00, 1536 * 1024);
 	//generate_DA1Font();
 	memset(ps55.bitblt.payload, 0x00, PS55_BITBLT_MEMSIZE);
-	memset(ps55.bitblt.reg, 0xfe, 0x3f * sizeof(Bitu));//clear memory
+	memset(ps55.bitblt.reg, 0xfe, PS55_BITBLT_REGSIZE * sizeof(Bitu));//clear memory
 	ps55.mem_select = 0xb0;
 	if (ps55.palette_mono) ps55.data3e1_03 &= 0x7f;
 

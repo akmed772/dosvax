@@ -142,8 +142,6 @@ class VGA_UnchainedRead_Handler : public PageHandler {
 public:
 	Bitu readHandler(PhysPt start) {
 		vga.latch.d=((Bit32u*)vga.mem.linear)[start];
-		//if (start % 0x80 < 6) 
-		//	LOG_MSG("x: %04d y: %03d vga.latch.d: %08X (plane %d: %02X)", start % 0x80 * 8, start / 0x80, vga.latch.d, vga.config.read_map_select, vga.latch.b[vga.config.read_map_select]);
 		switch (vga.config.read_mode) {
 		case 0:
 			return (vga.latch.b[vga.config.read_map_select]);
@@ -333,12 +331,16 @@ class VGA_UnchainedPS55_Handler : public PageHandler {
 		//if(ps55.data3ea_0b & 0x08 && vga.config.write_mode != 1) vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
 		//if(ps55.data3ea_0b & 0x08) vga.latch.d = ((Bit32u*)vga.mem.linear)[start];
 		//vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time
-		Bit32u data = ModeOperation(val);
-		//if (~ps55.data3ea_0b & 0x08)
-		//{
-		//	data = (data & vga.config.full_bit_mask) ^ vga.latch.d;
-		//	data = (data & vga.config.full_not_enable_set_reset) | vga.config.full_enable_and_set_reset;
-		//}
+		Bit32u data;
+		//Bit32u data = ModeOperation(val);
+		if (~ps55.data3ea_0b & 0x08)
+		{
+			data = ModeOperation(val);
+			//data = (data & vga.config.full_bit_mask) ^ vga.latch.d;
+			//data = (data & vga.config.full_not_enable_set_reset) | vga.config.full_enable_and_set_reset;
+		}
+		else
+			data = ModeOperation(val);
 		/* Update video memory and the pixel buffer */
 		VGA_Latch pixels;
 		pixels.d = ((Bit32u*)vga.mem.linear)[start];
@@ -366,11 +368,11 @@ class VGA_UnchainedPS55_Handler : public PageHandler {
 		*(Bit32u*)(write_pixels + 4) = colors4_7;
 
 		//heeavy debug
-		//if(ps55.data3ea_0b <8) {
+		if(ps55.data3ea_0b <8) {
 		//if ((start >= 89 * 130 + 80 / 8) && (start < 89 * 130 + 280 / 8)) {
-			//LOG_MSG("L x %04d y %03d mode %X rop %X val %02X setreset %02X ensetreset %02X dst %08X",
-			//	start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
-			//	val, ps55.set_reset, ps55.enable_set_reset, vga.latch.d);
+			LOG_MSG("L x %04d y %03d mode %X rop %X val %02X setreset %02X ensetreset %02X mapmask %02X dst %08X",
+				start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
+				val, ps55.set_reset, ps55.enable_set_reset, ps55.map_mask, vga.latch.d);
 			//LOG_MSG("L x %04d y %03d mode %X rop %X src %02X srbit %02X esrbit %02X dst %08X lat %08X px %08X %08X",
 			//	start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
 			//	val, ps55.set_reset, ps55.enable_set_reset, vga.latch.d, data, debug_destpx1, debug_destpx2);
@@ -379,7 +381,7 @@ class VGA_UnchainedPS55_Handler : public PageHandler {
 		//	val, ps55.full_enable_and_set_reset_low, vga.config.full_bit_mask, vga.latch.d, data, debug_destpx1, debug_destpx2);
 		//LOG_MSG("L x %04d y %03d mapmask %02X rd %08X, wt %08X,                                       px %08X %08X",
 		//	start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, ps55.map_mask, debug_dest.d, pixels.d, colors0_3, colors4_7);
-		//}
+		}
 		//if ((start >= 327 * 130 + 102 / 8) && (start < 327 * 130 + 142 / 8)) {
 		//	LOG_MSG("L x %04d y %03d mode %X rop %X val %02X setreset %02X ensetreset %02X dst %08X",
 		//		start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
@@ -435,8 +437,7 @@ class VGA_UnchainedPS55_Handler : public PageHandler {
 	}
 public:
 	Bitu readHandler(PhysPt start) {
-		//if (start % 0x80 < 6) 
-		//LOG_MSG("x: %04d y: %03d vga.latch.d: %08X (plane %d: %02X)", start % 0x80 * 8, start / 0x80, vga.latch.d, vga.config.read_map_select, vga.latch.b[vga.config.read_map_select]);
+		vga.latch.d = ((Bit32u*)vga.mem.linear)[start];
 		switch (vga.config.read_mode) {
 		case 0:
 			return (vga.latch.b[vga.config.read_map_select]);
@@ -452,24 +453,54 @@ public:
 		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
 		addr += vga.svga.bank_read_full;
 		addr = CHECKED2(addr);
-		vga.latch.d = ((Bit32u*)vga.mem.linear)[addr];
 		return readHandler(addr);
 	}
 	Bitu readw(PhysPt addr) {
 		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
 		addr += vga.svga.bank_read_full;
 		addr = CHECKED2(addr);
-		vga.latch.d = ((Bit32u*)vga.mem.linear)[addr];
+		addr &= 0xfffffffe;
+		ps55.latchw1.d = ((Bit32u*)vga.mem.linear)[addr];
 		ps55.latchw2.d = ((Bit32u*)vga.mem.linear)[addr + 1];
 		Bitu ret = (readHandler(addr + 0) << 0);
 		ret |= (readHandler(addr + 1) << 8);
 		return  ret;
 	}
+//public:
+//	Bitu readHandler(PhysPt start) {
+//		switch (vga.config.read_mode) {
+//		case 0:
+//			return (vga.latch.b[vga.config.read_map_select]);
+//		case 1:
+//			VGA_Latch templatch;
+//			templatch.d = (vga.latch.d & FillTable[vga.config.color_dont_care]) ^ FillTable[vga.config.color_compare & vga.config.color_dont_care];
+//			return (Bit8u)~(templatch.b[0] | templatch.b[1] | templatch.b[2] | templatch.b[3]);
+//		}
+//		return 0;
+//	}
+//public:
+//	Bitu readb(PhysPt addr) {
+//		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
+//		addr += vga.svga.bank_read_full;
+//		addr = CHECKED2(addr);
+//		vga.latch.d = ((Bit32u*)vga.mem.linear)[addr];
+//		return readHandler(addr);
+//	}
+//	Bitu readw(PhysPt addr) {
+//		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
+//		addr += vga.svga.bank_read_full;
+//		addr = CHECKED2(addr);
+//		vga.latch.d = ((Bit32u*)vga.mem.linear)[addr];
+//		ps55.latchw2.d = ((Bit32u*)vga.mem.linear)[addr + 1];
+//		Bitu ret = (readHandler(addr + 0) << 0);
+//		ret |= (readHandler(addr + 1) << 8);
+//		return  ret;
+//	}
 public:
 	void writeHandler(PhysPt start, Bit8u val) {
-		if (vga.config.write_mode != 1) {
-			vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
-		}
+		//if (vga.config.write_mode != 1) {
+		//	vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
+		//}
 		val = ((val >> (ps55.data_rotate & 0x7)) | (val << (8 - (ps55.data_rotate & 0x7))));
 		vga.config.full_set_reset = ps55.full_set_reset_low;
 		vga.config.full_not_enable_set_reset = ps55.full_not_enable_set_reset_low;
@@ -481,10 +512,10 @@ public:
 		writeData(start, val);
 	}
 	void writeHandlerW(PhysPt start, Bit16u val) {
-		if (vga.config.write_mode != 1) {
-			vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
-			ps55.latchw2.d = ((Bit32u*)vga.mem.linear)[start + 1];
-		}
+		//if (vga.config.write_mode != 1) {
+		//	vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
+		//	ps55.latchw2.d = ((Bit32u*)vga.mem.linear)[start + 1];
+		//}
 		//if (ps55.data_rotate) LOG_MSG("Rotate1: %X >> %X", val, ps55.data_rotate);
 		val = ((val >> ps55.data_rotate) | (val << (16 - ps55.data_rotate)));
 		//if (ps55.data_rotate) LOG_MSG("Rotate2: %X", val);
@@ -495,9 +526,10 @@ public:
 		vga.config.data_rotate = 0;
 		vga.config.full_map_mask = ps55.full_map_mask_low;
 		vga.config.full_not_map_mask = ps55.full_not_map_mask_low;
+		vga.latch = ps55.latchw1;
 		writeData(start, val & 0xff);
 		vga.config.full_bit_mask = ps55.full_bit_mask_high;
-		//vga.latch = ps55.latchw2;
+		vga.latch = ps55.latchw2;
 		writeData(start + 1, val >> 8);
 	}
 public:
