@@ -51,6 +51,7 @@ using namespace std;
 #include "setup.h"
 //DOSVAX for PS/55
 #include "ps55.h"
+#include "vga.h"
 
 #ifdef WIN32
 void WIN32_Console();
@@ -1049,6 +1050,74 @@ bool ParseCommand(char* str) {
 
 	//DOSVAX for PS/55
 
+	if (command == "VRAMDUMP") { // Dump the video memory
+		FILE* f = fopen("VRAMDUMP.BIN", "wb");
+		if (!f) {
+			DEBUG_ShowMsg("DEBUG: Dump failed.\n");
+			return false;
+		}
+
+		for (Bitu x = 0; x < vga.vmemsize; x++) {
+			Bit8u val;
+			val = vga.mem.linear[x];
+			fwrite(&val, 1, 1, f);
+		}
+		fclose(f);
+		DEBUG_ShowMsg("DEBUG: Dump success.\n");
+		return true;
+	};
+	if (command == "PLTDUMP") { // Dump the palette registers
+		FILE* f = fopen("PLTRDUMP.TXT", "w");
+		if (!f) {
+			DEBUG_ShowMsg("DEBUG: Dump failed.\n");
+			return false;
+		}
+		fprintf(f, "Attribute palette:\n");
+		for (Bitu x = 0; x < 16; x++) {
+			Bit8u plt, val;
+			plt = vga.attr.palette[x];
+			fprintf(f, "%02X: [%02X] ", x, plt);
+			val = vga.dac.rgb[plt].red;
+			fprintf(f, "%02X", val);
+			val = vga.dac.rgb[plt].green;
+			fprintf(f, "%02X", val);
+			val = vga.dac.rgb[plt].blue;
+			fprintf(f, "%02X", val);
+			val = vga.dac.rgb[plt].red << 2;
+			val |= vga.dac.rgb[plt].red & 0x3;
+			fprintf(f, " = %02X", val);
+			val = vga.dac.rgb[plt].green << 2;
+			val |= vga.dac.rgb[plt].green & 0x3;
+			fprintf(f, "%02X", val);
+			val = vga.dac.rgb[plt].blue << 2;
+			val |= vga.dac.rgb[plt].blue & 0x3;
+			fprintf(f, "%02X\n", val);
+		}
+		fprintf(f, "DAC palette:\n");
+
+		for (Bitu x = 0; x < 256; x++) {
+			Bit8u val;
+			//fwrite(&val, 1, 1, f);
+			val = vga.dac.rgb[x].red;
+			fprintf(f, "%02X: %02X", x, val);
+			val = vga.dac.rgb[x].green;
+			fprintf(f, "%02X", val);
+			val = vga.dac.rgb[x].blue;
+			fprintf(f, "%02X", val);
+			val = vga.dac.rgb[x].red << 2;
+			val |= vga.dac.rgb[x].red & 0x3;
+			fprintf(f, " = %02X", val);
+			val = vga.dac.rgb[x].green << 2;
+			val |= vga.dac.rgb[x].green & 0x3;
+			fprintf(f, "%02X", val);
+			val = vga.dac.rgb[x].blue << 2;
+			val |= vga.dac.rgb[x].blue & 0x3;
+			fprintf(f, "%02X\n", val);
+		}
+		fclose(f);
+		DEBUG_ShowMsg("DEBUG: Dump success.\n");
+		return true;
+	};
 	if (command == "GAIJIDUMP") { // Dump the Gaiji RAM to file binary
 		FILE* f = fopen("GAIJIDUMP.BIN", "wb");
 		if (!f) {
@@ -1063,6 +1132,30 @@ bool ParseCommand(char* str) {
 		}
 		fclose(f);
 		DEBUG_ShowMsg("DEBUG: PS/55 Gaiji memory dump success.\n");
+		return true;
+	};
+	if (command == "BLTDUMP") { // Dump BitBLT register table
+		FILE* f = fopen("BLTDUMP.TXT", "w");
+		if (!f) {
+			DEBUG_ShowMsg("DEBUG: BitBLT register log dump failed.\n");
+			return false;
+		}
+
+		for (Bitu y = 0; y < PS55_DEBUG_BITBLT_SIZE; y++) {
+			if (ps55.bitblt.debug_reg[ps55.bitblt.debug_reg_ip - 1][y] != 0xfefefefe)
+				fprintf(f, "\"%02X\"\t", y);
+		}
+		fprintf(f, "\n");
+		for (Bitu x = 0; x < ps55.bitblt.debug_reg_ip; x++) {
+			for (Bitu y = 0; y < PS55_DEBUG_BITBLT_SIZE; y++) {
+				if(ps55.bitblt.debug_reg[ps55.bitblt.debug_reg_ip - 1][y] != 0xfefefefe)
+					fprintf(f, "\"%X\"\t", ps55.bitblt.debug_reg[x][y]);
+			}
+			fprintf(f, "\n");
+		}
+
+		fclose(f);
+		DEBUG_ShowMsg("DEBUG: BitBLT register log dump success.\n");
 		return true;
 	};
 	//if (command == "DA1DUMP") { // Dump the Font ROM to file binary
@@ -2416,7 +2509,7 @@ static void SaveMemory(Bit16u seg, Bit32u ofs1, Bit32u num) {
 }
 
 static void SaveMemoryBin(Bit16u seg, Bit32u ofs1, Bit32u num) {
-	FILE* f = fopen("MEMDUMP.BIN","wb");
+	FILE* f = fopen(".\\MEMDUMP.BIN","wb");
 	if (!f) {
 		DEBUG_ShowMsg("DEBUG: Memory binary dump failed.\n");
 		return;
@@ -2428,8 +2521,10 @@ static void SaveMemoryBin(Bit16u seg, Bit32u ofs1, Bit32u num) {
 		fwrite(&val,1,1,f);
 	}
 
-	fclose(f);
-	DEBUG_ShowMsg("DEBUG: Memory dump binary success.\n");
+	if(fclose(f) == 0)
+		DEBUG_ShowMsg("DEBUG: Memory dump binary success.\n");
+	else
+		DEBUG_ShowMsg("DEBUG: Memory dump binary failed.\n");
 }
 
 static void OutputVecTable(char* filename) {
