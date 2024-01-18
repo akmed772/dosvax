@@ -1357,6 +1357,9 @@ void DOS_Shell::CMD_MODE(char* args) {
 	}
 	else if (strcasecmp(pbuffer, "/?") == 0) { HELP("MODE"); }
 	if (set_videomode != 0) {
+		IO_Write(0x96, 0x20);//enter setup VGA
+		if (IO_Read(0x102) & 0x01) IO_Write(0x102, 0x00);//disable VGA if it is
+		IO_Write(0x96, 0x00);//exit setup DA
 		IO_Write(0x96, 0x08);//enter setup DA
 		if (!(IO_Read(0x102) & 0x01)) IO_Write(0x102, 0x03);//enable DA if it is not
 		IO_Write(0x96, 0x00);//exit setup DA
