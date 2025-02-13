@@ -106,14 +106,13 @@ void DOS_SetupTables(void) {
 
 	/* Allocate DCBS DOUBLE BYTE CHARACTER SET LEAD-BYTE TABLE */
 	dos.tables.dbcs=RealMake(DOS_GetMemory(12),0);
-	if (dos.set_ax_enabled || IS_PS55_ARCH) {//if machine==jega is set (for AX) or svga_ps55 (for PS/55)
-		mem_writew(Real2Phys(dos.tables.dbcs) + 0x00, 0x0006); //Set DBCS table
-		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x02, 0x81); 
-		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x03, 0x9f);
-		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x04, 0xe0);
-		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x05, 0xfc);
-		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x06, 0x00);
-		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x07, 0x00);
+	if (dos.set_ax_enabled || IS_PS55_ARCH) {//if machine==jega is set (for AX) or svga_ps55 (for Japanese PS/55)
+		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x00, 0x81); 
+		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x01, 0x9f);
+		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x02, 0xe0);
+		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x03, 0xfc);
+		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x04, 0x00);
+		mem_writeb(Real2Phys(dos.tables.dbcs) + 0x05, 0x00);
 	}else
 		mem_writed(Real2Phys(dos.tables.dbcs),0); //empty table
 	/* FILENAME CHARACTER TABLE */
