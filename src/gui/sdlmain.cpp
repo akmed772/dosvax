@@ -2639,7 +2639,7 @@ int main(int argc, char* argv[]) {
 #endif  //defined(WIN32) && !(C_DEBUG)
 		if (control->cmdline->FindExist("-version") ||
 		    control->cmdline->FindExist("--version") ) {
-			printf("\nDOSVAX version %s, copyright 2024 akm.\n\n",VERSION);
+			printf("\nDOSVAX version %s, copyright 2025 akm.\n\n",VERSION);
 			printf("DOSVAX is a modified version of DOSBox (See readme.txt))\n");
 			printf("DOSVAX comes with ABSOLUTELY NO WARRANTY.  This is free software,\n");
 			printf("and you are welcome to redistribute it under certain conditions;\n");

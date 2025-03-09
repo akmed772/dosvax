@@ -26,7 +26,7 @@
 #include <list>
 #include "jsupport.h"//for PS/55
 
-static Bitu call_int2f,call_int2a,call_int1f, call_int18;//for PS/55
+static Bitu call_int2f,call_int2a,call_int1f;//for PS/55
 
 static std::list<MultiplexHandler*> Multiplex;
 typedef std::list<MultiplexHandler*>::iterator Multiplex_it;
@@ -42,40 +42,6 @@ void DOS_DelMultiplexHandler(MultiplexHandler * handler) {
 			return;
 		}
 	}
-}
-
-//for PS/55
-/*
-INT 18h Convert SJIS code to font code (Japanese DOS only?)
-Input:
-	AX = 0101, CX = SJIS code (>8140h AND <FC4Bh)
-Return:
-	CX = IBMJ code (Index of the font ROM)
-	ZF = 1 if the input is invalid
-*/
-static Bitu INT18_Handler(void) {
-	Bit16u knjcode;
-	switch (reg_ax) {
-	case 0x0101:
-		knjcode = reg_cx;
-		knjcode = SJIStoIBMJ(knjcode);
-		if (knjcode == 0xffff) {//invalid code
-			CALLBACK_SCF(true);
-			return CBRET_NONE;
-		}
-		reg_cx = knjcode;
-		break;
-	case 0x0102://Convert font code to SJIS code
-		knjcode = reg_cx;
-		knjcode = IBMJtoSJIS(knjcode);
-		if (knjcode == 0xffff) {//invalid code
-			CALLBACK_SCF(true);
-			return CBRET_NONE;
-		}
-		reg_cx = knjcode;
-		break;
-	}
-	return CBRET_NONE;
 }
 
 /*
@@ -272,9 +238,5 @@ void DOS_SetupMisc(void) {
 		call_int1f = CALLBACK_Allocate();// for PS/55
 		CALLBACK_Setup(call_int1f, &INT1F_Handler, CB_IRET, "DOS Int 1f");
 		RealSetVec(0x1F, CALLBACK_RealPointer(call_int1f));
-		//overwrite Intertrupt Vector 18h
-		call_int18 = CALLBACK_Allocate();// for PS/55
-		CALLBACK_Setup(call_int18, &INT18_Handler, CB_IRET, "DOS Int 18");
-		RealSetVec(0x18, CALLBACK_RealPointer(call_int18));
 	}
 }

@@ -48,9 +48,10 @@ VideoModeBlock ModeList_PS55[] = {
 	Hex F: 1024x768 256 Color Graphics
 	*/
 	/* mode  ,type            ,sw  ,sh  ,tw ,th ,cw ,ch ,pt,pstart ,plength,htot,vtot,hde,vde,special flags */
-	{ 0x003  ,M_PS55_M3TEXT  ,1040 ,725 ,80 ,25 ,13 ,29 ,1 ,0xb0000 ,0x10000 ,95 ,792 ,80 ,725 ,0 },//for PS/55
-	{ 0x008  ,M_PS55_TEXT    ,1040 ,725 ,80 ,25 ,13 ,29 ,1 ,0xe0000 ,0x1000 ,95 ,792 ,80 ,725 ,0 },//for PS/55
-	{ 0x00E  ,M_PS55_TEXT    ,1040 ,725 ,80 ,25 ,13 ,29 ,1 ,0xe0000 ,0x1000 ,95 ,792 ,80 ,725 ,0 }//for PS/55
+	{ 0x003  ,M_PS55_M3TEXT  ,1040 ,725 ,80 ,25 ,13 ,29 ,1 ,0xB0000 ,0x10000 ,95 ,792 ,80 ,725 ,0 },//for PS/55
+	{ 0x008  ,M_PS55_TEXT    ,1040 ,725 ,80 ,25 ,13 ,29 ,1 ,0xE0000 ,0x1000  ,95 ,792 ,80 ,725 ,0 },//for PS/55
+	{ 0x00D  ,M_PS55_GFX     ,1024 ,768 ,78 ,25 ,13 ,29 ,4 ,0xA0000 ,0x20000 ,76 ,806 ,64 ,768 ,0 },//for PS/55
+	{ 0x00E  ,M_PS55_TEXT    ,1040 ,725 ,80 ,25 ,13 ,29 ,1 ,0xE0000 ,0x1000  ,95 ,792 ,80 ,725 ,0 } //for PS/55
 };
 
 VideoModeBlock ModeList_VGA[]={
@@ -556,6 +557,7 @@ static void FinishSetMode(bool clearmem) {
 		case M_LIN15:
 		case M_LIN16:
 		case M_LIN32:
+		case M_PS55_GFX:
 			/* Hack we just access the memory directly */
 			memset(vga.mem.linear,0,vga.vmemsize);
 			memset(vga.fastmem, 0, vga.vmemsize<<1);
@@ -966,8 +968,10 @@ bool INT10_SetVideoMode(Bit16u mode) {
 	switch (CurMode->type) {
 	case M_PS55_TEXT:
 		seq_data[2] |= 0x3;				//Enable plane 0
-		seq_data[4] |= 0x01;				//Alpanumeric
-		if (IS_VGA_ARCH) seq_data[4] &= ~0x04;	//odd/even disabled
+		seq_data[4] |= 0x01;			//Alpanumeric
+		break;
+	case M_PS55_GFX:
+		seq_data[2] |= 0xf;				//Enable plane 0-3
 		break;
 	case M_TEXT:
 		if (CurMode->cwidth==9) seq_data[1] &= ~1;
@@ -1125,6 +1129,7 @@ bool INT10_SetVideoMode(Bit16u mode) {
 	}
 	switch (CurMode->type) {
 	case M_PS55_TEXT:
+	case M_PS55_GFX:
 		max_scanline |= CurMode->cheight - 1;
 		underline = CurMode->cheight - 1;
 		break;
@@ -1225,6 +1230,7 @@ bool INT10_SetVideoMode(Bit16u mode) {
 		mode_control = 0x83;
 		break;
 	case M_TEXT:
+	case M_PS55_GFX:
 	case M_VGA:
 	case M_LIN8:
 	case M_LIN15:
@@ -1284,6 +1290,10 @@ bool INT10_SetVideoMode(Bit16u mode) {
 		gfx_data[0x5] |= 0x10;		//Odd-Even Mode
 		//TVRAM set at e000 and call VGA_SetupHandler; extended for PS/55
 		gfx_data[0x6] |= 0x0a;
+		break;
+	case M_PS55_GFX:
+		gfx_data[0x5] |= 0x40;		//256 color mode
+		gfx_data[0x6] |= 0x05;		//graphics mode at 0xa000-affff
 		break;
 	case M_TEXT:
 		gfx_data[0x5]|=0x10;		//Odd-Even Mode
@@ -1378,6 +1388,11 @@ bool INT10_SetVideoMode(Bit16u mode) {
 			for (i = 0; i < 16; i++) {
 				att_data[i] = ps55_attr_mono[i];
 			}
+		}
+		break;
+	case M_PS55_GFX:
+		for (i = 0; i < 16; i++) {
+			att_data[i] = ps55_attr_color[i];
 		}
 		break;
 	case M_TEXT:
@@ -1475,6 +1490,7 @@ att_text16:
 			}
 			break;
 		case M_PS55_TEXT:
+		case M_PS55_GFX:
 			for (i = 0; i < 256; i++) {
 				IO_Write(0x3c9, ps55_palette_color[i&0x3F][0]);
 				IO_Write(0x3c9, ps55_palette_color[i&0x3F][1]);
@@ -1562,11 +1578,20 @@ dac_text16:
 		feature=(feature&~0x30)|0x20;
 		break;*/
 	case M_PS55_TEXT:
-		real_writeb(BIOSMEM_SEG, BIOSMEM_CURRENT_MSR, 0x28);
+		real_writeb(BIOSMEM_SEG, BIOSMEM_CURRENT_MSR, 0x29);
 		//setup registers to switch display mode
 		IO_WriteW(0x3e0, 0x1102);
-		IO_WriteW(0x3e5, 0x801c);
-		IO_WriteW(0x3e5, 0x021f);
+		IO_WriteW(0x3e4, 0x801c);
+		IO_WriteW(0x3e4, 0x021f);
+		IO_WriteW(0x3e2, 0xab00);
+		break;
+	case M_PS55_GFX:
+		real_writeb(BIOSMEM_SEG, BIOSMEM_CURRENT_MSR, 0x29);
+		LOG(LOG_BIOS, LOG_NORMAL)("writing regs to switch video mode to PS55_GFX");
+		IO_WriteW(0x3e0, 0x1002);
+		IO_WriteW(0x3e4, 0x001c);
+		IO_WriteW(0x3e4, 0x001d);
+		IO_WriteW(0x3e4, 0x021f);
 		IO_WriteW(0x3e2, 0x2b00);
 		break;
 	case M_TEXT:/*r4467

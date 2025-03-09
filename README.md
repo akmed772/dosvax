@@ -8,21 +8,22 @@ GNU GPLv2 if there is no statement in the document or source code. See also ABOU
 
 ### About
 
-This is an emulator that reproduces the AX specification personal computer commonly called the Japanese PC/AT compatible machine. It is a folk of DOSBox, and is possible to run IBM PC software and DOS/V, but the goal is to run applications developed for AX machines. Please prepare the Japanese MS-DOS for AX. The BIOS ROM is not required, but you need to make Japanese FONTX2 font files to display Japanese characters.
+This is an emulator that reproduces the AX specification personal computer commonly called the Japanese PC/AT compatible machine. It is a folk of DOSBox that can run IBM PC software and DOS/V, but my goal is to run applications developed for AX machines. Please prepare the AX port of MS-DOS. The BIOS ROM is not required, but you need to generate Japanese FONTX2 font files to display Japanese characters.
 
 Also, it experimentally implements the PS/55 emulation equivalent to the IBM Japan PS/55 model 5550-S/T/V. (PS/55 was developed aside from the AX, so there is no compatibility between those architectures.)
 
 ### Features (AX)
 
-* Japanese text / graphic emulation equivalent to the AX-1 system specification.
-* Support switching between Japanese (AX) and English (PC/AT) mode.
+* Implement Japanese text / graphic functions equivalent to the AX-1 system specification
+* Support Japanese-English mode switching (bilingual)
 * Assign additional keys specific to the AX keyboard
 
 ### Unsupported / Limitations (AX)
 
-* AX-2 extensions (text-on-graphics superimposition)
+* AX-2 extensions (text graphics superimposition)
 * User-defined characters using bank switching
-* Extended printer BIOS
+* Additional functions of the printer BIOS
+* Incomplete implementation of Kana shift lock
 * Incomplete support for Japanese 106 keyboard due to the limitation of the component (SDL 1.2) on which DOSBox depends.
 * MOUSE.SYS of MS-DOS 3.21 cannot work because DOSBox doesn't support the bus mouse. Use MOUSE.COM of IBM DOS J4.0/V and later.
 
@@ -36,7 +37,7 @@ Also, it experimentally implements the PS/55 emulation equivalent to the IBM Jap
 
 ### How to use
 
-Run dosbox.exe. Dosbox_debug.exe has a debug monitor feature, but the operation speed becomes a bit slower. Please refer to the DOSBox documentation for basic usage. The following explains extensions in DOSVAX.
+Run dosbox.exe. Dosbox_debug.exe has a debug monitor feature, but the operation speed becomes a bit slower. Please refer to the DOSBox documentation for basic usage. The following explains changes in DOSVAX.
 
 #### Key assignments (AX)
 
@@ -72,10 +73,16 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 ```
 
 ### Version History
+* Build 4483PS15 (2025/03/09)
+  - Changes in the PS/55 emulation
+    - Add and fix some BitBlt functions to improve compatibility with Windows 3.1.
+    - Change the return value when accessing to an invalid index of I/O 3E3h. This will fix a compatibility issue with the 5550 BASIC programs, so the DCBPATCH is no longer required.
+    - Change some glyphs in the self-generated font used by the DOS Bunsho Program.
+    - Remove INT18h functions from the built-in DOS. That was a user-defined function used only in a certain application.
 * Build 4483PS14 (2024/01/18)
   - Added a BitBlt operation to run Windows 3.0 (IBMJ OEM) in the standard mode with its PS/55 high-resolution display driver. (though it displays incorrect text color in Windows 3.1)
   - Added some debug commands, VRAMDUMP (video memory dump), PLTDUMP (palette dump) and BLTDUMP (bitblt regs log dump).
-  - Fix an issue that the PS/55 text mode initialization in the Video BIOS clears memory outside attribute buffer.
+  - Fix an issue that the PS/55 text mode initialization in the Video BIOS clear memory outside attribute buffer.
   - Fix an issue that the screen glitches when the PS/55 display adapter is re-activated.
 * Build 4483PS13 (2023/12/20)
   - Correct text blinking in the JEGA drawing function.

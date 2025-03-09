@@ -82,7 +82,7 @@ static INLINE Bitu  hostRead(HostPt off ) {
 void VGA_MapMMIO(void);
 //Nice one from DosEmu
 INLINE static Bit32u RasterOp(Bit32u input,Bit32u mask) {
-	switch (vga.config.raster_op) {
+	switch (vga.config.raster_op & 3) {
 	case 0x00:	/* None */
 		return (input & mask) | (vga.latch.d & ~mask);
 	case 0x01:	/* AND */
@@ -325,25 +325,67 @@ public:
 };
 
 //for PS/55
+
+INLINE static Bit32u ModeOperationPS55(Bit8u val) {
+	Bit32u full;
+	switch (vga.config.write_mode & 3) {
+	case 0x00:
+		// Write Mode 0: In this mode, the host data is first rotated as per the Rotate Count field, then the Enable Set/Reset mechanism selects data from this or the Set/Reset field. Then the selected Logical Operation is performed on the resulting data and the data in the latch register. Then the Bit Mask field is used to select which bits come from the resulting data and which come from the latch register. Finally, only the bit planes enabled by the Memory Plane Write Enable field are written to memory. 
+		val = ((val >> vga.config.data_rotate) | (val << (8 - vga.config.data_rotate)));
+		full = ExpandTable[val];
+		full = (full & vga.config.full_not_enable_set_reset) | vga.config.full_enable_and_set_reset;
+		full = RasterOp(full, vga.config.full_bit_mask);
+		break;
+	case 0x02:
+		// Write Mode 1: In this mode, data is transferred directly from the 32 bit latch register to display memory, affected only by the Memory Plane Write Enable field. The host data is not used in this mode. 
+		full = vga.latch.d;
+		break;
+	case 0x01:
+		//Write Mode 2: In this mode, the bits 3-0 of the host data are replicated across all 8 bits of their respective planes. Then the selected Logical Operation is performed on the resulting data and the data in the latch register. Then the Bit Mask field is used to select which bits come from the resulting data and which come from the latch register. Finally, only the bit planes enabled by the Memory Plane Write Enable field are written to memory. 
+		full = RasterOp(FillTable[val & 0xF], vga.config.full_bit_mask);
+		break;
+	case 0x03:
+		// Write Mode 3: In this mode, the data in the Set/Reset field is used as if the Enable Set/Reset field were set to 1111b. Then the host data is first rotated as per the Rotate Count field, then logical ANDed with the value of the Bit Mask field. The resulting value is used on the data obtained from the Set/Reset field in the same way that the Bit Mask field would ordinarily be used. to select which bits come from the expansion of the Set/Reset field and which come from the latch register. Finally, only the bit planes enabled by the Memory Plane Write Enable field are written to memory.
+		val = ((val >> vga.config.data_rotate) | (val << (8 - vga.config.data_rotate)));
+		full = RasterOp(vga.config.full_set_reset, ExpandTable[val] & vga.config.full_bit_mask);
+		break;
+	default:
+		LOG(LOG_VGAMISC, LOG_NORMAL)("VGA:Unsupported write mode %d", vga.config.write_mode);
+		full = 0;
+		break;
+	}
+	return full;
+}
+
 class VGA_UnchainedPS55_Handler : public PageHandler {
 	void writeData(PhysPt start, Bit8u val) {
-		if(vga.config.write_mode != 1) vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
-		//if(ps55.data3ea_0b & 0x08 && vga.config.write_mode != 1) vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
-		//if(ps55.data3ea_0b & 0x08) vga.latch.d = ((Bit32u*)vga.mem.linear)[start];
-		//vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time
 		Bit32u data;
-		//if (~ps55.data3ea_0b & 0x08)
-		//{
-		//	data = ModeOperation(val);
-		//	data = (data & vga.config.full_bit_mask) ^ vga.latch.d;
-		//	data = (data & vga.config.full_not_enable_set_reset) | vga.config.full_enable_and_set_reset;
+		VGA_Latch pixels, debug_dest;
+		if (start & 1) vga.config.full_bit_mask = ps55.full_bit_mask_high;
+		else vga.config.full_bit_mask = ps55.full_bit_mask_low;
+		if((vga.config.write_mode & 3) != 2) vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch from dest every time except mode 2
+		if (!(vga.config.raster_op & 0x08))
+		{
+			data = ExpandTable[val];
+			data = (((data & ~vga.config.full_set_reset) | (~data & vga.config.full_set_reset)) & vga.config.full_not_enable_set_reset)
+				| vga.config.full_enable_and_set_reset;
+			//LOG_MSG("L x %04d y %03d val %02X setreset %02X, ensetreset %02X, mapmask %02X, rop %d",
+			//	start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, val, ps55.set_reset, ps55.enable_set_reset, ps55.map_mask, vga.config.raster_op);
+			data = RasterOp(data, vga.config.full_bit_mask);
+		} else {
+			data = ModeOperationPS55(val);
+		}
+#ifdef C_HEAVY_DEBUG
+		//if (((int)start - (int)ps55.mmwdbg_vidaddr) > 2 || (((int)ps55.mmwdbg_vidaddr - (int)start) > 2) || ps55.mmwdbg_vidaddr == start) {
+		//	fprintf(ps55.mmwdbg_fp, "\nB %x %02x: ", start, val);
+		//	for (int i = 0; i <= 0xb; i++)
+		//		fprintf(ps55.mmwdbg_fp, "%02x ", ps55.gc_reg[i]);
 		//}
-		//else
-			data = ModeOperation(val);
+		//ps55.mmwdbg_vidaddr = start;
+#endif
 		/* Update video memory and the pixel buffer */
-		VGA_Latch pixels;
 		pixels.d = ((Bit32u*)vga.mem.linear)[start];
-		VGA_Latch debug_dest; debug_dest.d = pixels.d;
+		debug_dest.d = pixels.d;
 		pixels.d &= vga.config.full_not_map_mask;
 		pixels.d |= (data & vga.config.full_map_mask);
 		((Bit32u*)vga.mem.linear)[start] = pixels.d;
@@ -367,31 +409,12 @@ class VGA_UnchainedPS55_Handler : public PageHandler {
 		*(Bit32u*)(write_pixels + 4) = colors4_7;
 
 		//heeavy debug
-		//if(ps55.data3ea_0b <8) {
-		////if ((start >= 89 * 130 + 80 / 8) && (start < 89 * 130 + 280 / 8)) {
-		//	LOG_MSG("L x %04d y %03d mode %X rop %X val %02X setreset %02X ensetreset %02X mapmask %02X dst %08X",
-		//		start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
-		//		val, ps55.set_reset, ps55.enable_set_reset, ps55.map_mask, vga.latch.d);
-		//	//LOG_MSG("L x %04d y %03d mode %X rop %X src %02X srbit %02X esrbit %02X dst %08X lat %08X px %08X %08X",
-		//	//	start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
-		//	//	val, ps55.set_reset, ps55.enable_set_reset, vga.latch.d, data, debug_destpx1, debug_destpx2);
-		////LOG_MSG("L x %04d y %03d mode%X rop%X src %02X smsk %08X bmsk %08X dst %08X lat %08X px %08X %08X",
-		////	start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
-		////	val, ps55.full_enable_and_set_reset_low, vga.config.full_bit_mask, vga.latch.d, data, debug_destpx1, debug_destpx2);
-		////LOG_MSG("L x %04d y %03d mapmask %02X rd %08X, wt %08X,                                       px %08X %08X",
-		////	start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, ps55.map_mask, debug_dest.d, pixels.d, colors0_3, colors4_7);
+		//if ((start >= 464 * vga.config.scan_len * 2 + 0 / 8) && (start <= 470 * vga.config.scan_len * 2 + 128 / 8)) {
+		//	LOG_MSG("WAddr %05x L x %04d y %03d mode %X rop %X val %02X sr %02X ensr %02X bm %08X mm %02X dst %08X src %08X",
+		//		start, start * 8 % (vga.config.scan_len * 2), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
+		//		val, ps55.set_reset, ps55.enable_set_reset, vga.config.full_bit_mask, ps55.map_mask, vga.latch.d, pixels.d);
 		//}
 
-		//if ((start >= 327 * 130 + 102 / 8) && (start < 327 * 130 + 142 / 8)) {
-		//	LOG_MSG("L x %04d y %03d mode %X rop %X val %02X setreset %02X ensetreset %02X dst %08X",
-		//		start % (vga.config.scan_len * 2 * 8), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
-		//		val, ps55.set_reset, ps55.enable_set_reset, vga.latch.d);
-		//}
-		// 		if ((start >= 1 * vga.config.scan_len * 2 + 0 / 8) && (start <= 5 * vga.config.scan_len * 2 + 128 / 8)) {
-		//	LOG_MSG("L x %04d y %03d mode %X rop %X val %02X setreset %02X ensetreset %02X dst %08X",
-		//		start * 8 % (vga.config.scan_len * 2), start / vga.config.scan_len / 2, vga.config.write_mode, vga.config.raster_op,
-		//		val, ps55.set_reset, ps55.enable_set_reset, vga.latch.d);
-		//}
 		// for 256 color unsupport
 		//*(Bit32u*)write_pixels &= 0x0f0f0f0f;
 		//*(Bit32u*)(write_pixels + 4) &= 0x0f0f0f0f;
@@ -438,12 +461,24 @@ class VGA_UnchainedPS55_Handler : public PageHandler {
 public:
 	Bitu readHandler(PhysPt start) {
 		vga.latch.d = ((Bit32u*)vga.mem.linear)[start];
-		switch (vga.config.read_mode) {
+		//LOG_MSG("RAddr %x L x %04d y %03d mode %X map %X lat %08X",
+		//	start, start * 8 % (vga.config.scan_len * 2), start / vga.config.scan_len / 2, 
+		//	vga.config.read_mode, vga.config.read_map_select, vga.latch.d);
+#ifdef C_HEAVY_DEBUG
+			//fprintf(ps55.mmrdbg_fp, "\nB %05x %08x: ", start, vga.latch.d);
+			//for (int i = 0; i <= 0xb; i++)
+			//	fprintf(ps55.mmrdbg_fp, "%02x ", ps55.gc_reg[i]);
+#endif
+		switch (vga.config.read_mode & 1) {
 		case 0:
+			//LOG_MSG("RAddr %x L x %04d y %03d mode %X map %X lat %08X ret %02X",
+			//	start, start * 8 % (vga.config.scan_len * 2), start / vga.config.scan_len / 2, vga.config.read_mode, 
+			//	vga.config.read_map_select, vga.latch.d, vga.latch.b[vga.config.read_map_select]);
 			return (vga.latch.b[vga.config.read_map_select]);
-		case 1:
+		case 1:/* compare data across plane (used by the BASIC interpreter) */
 			VGA_Latch templatch;
 			templatch.d = (vga.latch.d & FillTable[vga.config.color_dont_care]) ^ FillTable[vga.config.color_compare & vga.config.color_dont_care];
+			//LOG_MSG("templatch: %02X %02X %02X %02X", templatch.b[0], templatch.b[1], templatch.b[2], templatch.b[3]);
 			return (Bit8u)~(templatch.b[0] | templatch.b[1] | templatch.b[2] | templatch.b[3]);
 		}
 		return 0;
@@ -453,12 +488,14 @@ public:
 		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
 		addr += vga.svga.bank_read_full;
 		addr = CHECKED2(addr);
+		ps55.latchw1.d = ((Bit32u*)vga.mem.linear)[addr];
 		return readHandler(addr);
 	}
 	Bitu readw(PhysPt addr) {
 		addr = PAGING_GetPhysicalAddress(addr) & vgapages.mask;
 		addr += vga.svga.bank_read_full;
 		addr = CHECKED2(addr);
+		//addr &= 0xfffffffe;
 		ps55.latchw1.d = ((Bit32u*)vga.mem.linear)[addr];
 		ps55.latchw2.d = ((Bit32u*)vga.mem.linear)[addr + 1];
 		Bitu ret = (readHandler(addr + 0) << 0);
@@ -467,37 +504,28 @@ public:
 	}
 public:
 	void writeHandler(PhysPt start, Bit8u val) {
-		//if (vga.config.write_mode != 1) {
-		//	vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
-		//}
+		vga.latch = ps55.latchw1;
 		val = ((val >> (ps55.data_rotate & 0x7)) | (val << (8 - (ps55.data_rotate & 0x7))));
 		vga.config.full_set_reset = ps55.full_set_reset_low;
 		vga.config.full_not_enable_set_reset = ps55.full_not_enable_set_reset_low;
 		vga.config.full_enable_and_set_reset = ps55.full_enable_and_set_reset_low;
-		vga.config.full_bit_mask = ps55.full_bit_mask_low;
 		vga.config.data_rotate = 0;
 		vga.config.full_map_mask = ps55.full_map_mask_low;
 		vga.config.full_not_map_mask = ps55.full_not_map_mask_low;
 		writeData(start, val);
 	}
 	void writeHandlerW(PhysPt start, Bit16u val) {
-		//if (vga.config.write_mode != 1) {
-		//	vga.latch.d = ((Bit32u*)vga.mem.linear)[start];//set latch every time except mode 1?
-		//	ps55.latchw2.d = ((Bit32u*)vga.mem.linear)[start + 1];
-		//}
 		//if (ps55.data_rotate) LOG_MSG("Rotate1: %X >> %X", val, ps55.data_rotate);
 		val = ((val >> ps55.data_rotate) | (val << (16 - ps55.data_rotate)));
 		//if (ps55.data_rotate) LOG_MSG("Rotate2: %X", val);
 		vga.config.full_set_reset = ps55.full_set_reset_low;
 		vga.config.full_not_enable_set_reset = ps55.full_not_enable_set_reset_low;
 		vga.config.full_enable_and_set_reset = ps55.full_enable_and_set_reset_low;
-		vga.config.full_bit_mask = ps55.full_bit_mask_low;
 		vga.config.data_rotate = 0;
 		vga.config.full_map_mask = ps55.full_map_mask_low;
 		vga.config.full_not_map_mask = ps55.full_not_map_mask_low;
 		vga.latch = ps55.latchw1;
 		writeData(start, val & 0xff);
-		vga.config.full_bit_mask = ps55.full_bit_mask_high;
 		vga.latch = ps55.latchw2;
 		writeData(start + 1, val >> 8);
 	}

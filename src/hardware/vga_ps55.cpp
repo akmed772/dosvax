@@ -24,6 +24,7 @@ Note:
 
 #include "ps55.h"//for PS/55
 #include "jsupport.h"
+//#include "regs.h"
 
 PS55Registers ps55;
 MCARegisters mca;
@@ -133,12 +134,18 @@ public:
 			//Read-Only
 			break;
 		case 0x00:
-			if (addr >= PS55_BITBLT_MEMSIZE)
-			{
+			//if (addr >= PS55_BITBLT_MEMSIZE)
+			//{
+			//	LOG_MSG("PS55_MemHnd: Failure to write to bitblt mem addr %x, val %x", ps55.mem_select, addr, val);
+			//	return;
+			//}
+			//ps55.bitblt.payload[addr] = val;
+			if (ps55.bitblt.payload_addr >= PS55_BITBLT_MEMSIZE)
 				LOG_MSG("PS55_MemHnd: Failure to write to bitblt mem addr %x, val %x", ps55.mem_select, addr, val);
-				return;
+			else {
+				ps55.bitblt.payload[ps55.bitblt.payload_addr] = val;
+				ps55.bitblt.payload_addr++;
 			}
-			ps55.bitblt.payload[addr] = val;
 			break;
 		default:
 			//LOG_MSG("PS55_MemHnd_F: Default passed!!!");
@@ -343,32 +350,40 @@ void MCA_Card_Reg_Write(Bitu port, Bitu val, Bitu len) {
 /*
 	 [Identification of Display Adapter]
 	POS ID	SYS ID	
-	EFFFh	*		Display Adapter
-	EFFEh	*		Display Adapter II (I/O 3E0:0A = xx0x xxxx)
-	|-		FFF2h	Display Adapter B2 (I/O 3E0:0A = xx1x xxxx)
-	|-		FDFEh	Display Adapter B2 (I/O 3E0:0A = xx1x xxxx)
+	EFFFh	*		Display Adapter (PS/55 Model 5571-S0A) [Toledo]
+	EFFEh	*		Display Adapter II (I/O 3E0:0A = xx0x xxxx) [Atlas]
+	|-		FFF2h	Display Adapter B2 (I/O 3E0:0A = xx1x xxxx) (PS/55 Model 5530Z-SX)
+	|-		FDFEh	Display Adapter B2 (I/O 3E0:0A = xx1x xxxx) (PS/55 Model 5550-V2)
 	|-		*		Display Adapter III,V (I/O 3E0:0A = xx1x xxxx)
-	ECECh	FF4Fh	Display Adapter B1
+	ECECh	FF4Fh	Display Adapter B1 (PS/55Z 5530Z-SX) [Atlas-KENT]
 	|-		*		Display Adapter IV
 	ECCEh	*		Display Adapter IV
 	901Fh	*		Display Adapter A2
-	901Dh	*		Display Adapter A1
+	901Dh	*		Display Adapter A1 [ATLAS II]
 	901Eh	*		Plasma Display Adapter
-	EFD8h	*		Display Adapter/J
+	EFD8h	*		DBCS Display Adapter/J [Atlas-SP2]
 
 	 [Japanese DOS and Display Adapter compatibility]
-	| POS ID     | Name                        | K3.31 | J4.04 | J5.02 |
-	|------------|-----------------------------|:-----:|:-----:|:-----:|
-	| EFFFh      | Display Adapter (5571-S0A)  | X     |       |       |
-	| FFEDh      | ?                           | X     |       |       |
-	| FFFDh      | ?                           | X     |       |       |
-	| EFFEh      | Display Adapter II,III,V,B2 | X     | X     | X     |
-	| E013h      | ?                           | X     | X     | X     |
-	| ECCEh      | Display Adapter IV          |       | X     | X     |
-	| ECECh      | Display Adapter IV,B1       |       | X     | X     |
-	| 9000-901Fh | ?                           |       | X     | X     |
-	| EFD8h      | Display Adapter /J          |       |       | X     |
-
+	| POS ID     | Name                        | K3.31 | J4.04 | J5.02 | OS/2 J1.3 |
+	|------------|-----------------------------|:-----:|:-----:|:-----:|:---------:|
+	| EFFFh      | Display Adapter [Toledo]    | X     |       |       |           |
+	| FFEDh      | ? [Atlas EVT]               | X     |       |       |           |
+	| FFFDh      | ? [LDT EVT]                 | X     |       |       |           |
+	| EFFEh      | Display Adapter II,III,V,B2 | X     | X     | X     | X         |
+	| E013h      | ? [LDT]                     | X     | X     | X     | X         |
+	| ECCEh      | Display Adapter IV          |       | X     | X     | X         |
+	| ECECh      | Display Adapter IV,B1       |       | X     | X     | X         |
+	| 9000-901Fh | Display Adapter A1,A2       |       | X     | X     |           |
+	| EFD8h      | Display Adapter /J          |       |       | X     | X         |
+	
+	[Others]
+	8FDA - XGA-2 Video Adapter
+	8FDB - XGA Video Adapter
+	EFFD - IBM VGA Adapter
+	90EF - Display Adapter C0
+	90FD - Font / LCD Adapter
+	EFDE - PS/55-Secondary Display Adapter
+	EFEB - ? (appeared in OS/2 J1.3) [Atlas IDS]
 */
 
 //I/O Read POS Regs to return card ID 0xEFFE (Display Adapter II)
@@ -384,7 +399,7 @@ Bitu MCA_Card_Reg_Read(Bitu port, Bitu len) {
 			ret = 0xef;
 			break;
 		case 0x102://POS Register 2 - Option Select Data Byte 1
-			ret = (ps55.carden) ? 1 : 0;//Bit 0 : Card Enable
+			ret = (ps55.carden) ? 0x41 : 0x40;//Bit 6: Color Mon, Bit 0: Card Enable
 			break;
 		default:
 			break;
@@ -463,7 +478,7 @@ typedef union {
 void PS55_WritePlaneDataWithBitmask(Bitu destvmemaddr, const Bit16u mask, VGA_Latch srclatch1, VGA_Latch srclatch2, VGA_Latch srclatch3, VGA_Latch srclatch4)
 {
 	VGA_Latch destlatch1, destlatch2, destlatch3, destlatch4;
-	destvmemaddr &= 0xfffffffe;
+	destvmemaddr &= 0xfffffffe; /* align to word address to work bit shift correctly */
 	Bit32u maxvmemaddr = (vga.vmemsize - 1) >> 2;//divided by 4 because below code use dword memory access
 	destlatch1.d = ((Bit32u*)vga.mem.linear)[(destvmemaddr) & maxvmemaddr];
 	destlatch2.d = ((Bit32u*)vga.mem.linear)[(destvmemaddr + 1) & maxvmemaddr];
@@ -501,10 +516,14 @@ void PS55_WritePlaneDataWithBitmask(Bitu destvmemaddr, const Bit16u mask, VGA_La
 			srctemp32.d >>= ps55.bitblt.bitshift_destr;
 			srctemp32.d <<= 16;
 		}
+		if (ps55.bitblt.raster_op & 0x2010) /* NOT Src or NOT Pattern */
+			srctemp32.d = ~srctemp32.d & mask32.d;
+		if (ps55.bitblt.raster_op & 0x20) /* Dest NOT */
+			destop32.d = (~destop32.d & mask32.d) | (destop32.d & ~mask32.d);
 		//if(ps55.data3ea_0b < 0x08)
 		//	LOG_MSG("%02x %02x %02x %02x          | %02x %02x %02x %02x ,%02x %02x %02x %02x (Plane %d, rop %d, 3EA-0B %d)", destlatch1.b[i], destlatch2.b[i], destlatch3.b[i], destlatch4.b[i],
 		//	srctemp32.b[3], srctemp32.b[2], srctemp32.b[1], srctemp32.b[0], mask32.b[3], mask32.b[2], mask32.b[1], mask32.b[0], i, vga.config.raster_op, ps55.data3ea_0b);
-		switch (ps55.bitblt.raster_op) {
+		switch (ps55.bitblt.raster_op & 0x03) {
 		case 0x00:	/* None */
 					//return (input & mask) | (vga.latch.d & ~mask);
 			destop32.d &= ~mask32.d;
@@ -655,16 +674,95 @@ void DisableGaijiRAMHandler()
 			ps55.bitblt.debug_reg_ip++;
 			//end for debug
 #endif
-			
+
 			ps55.bitblt.bitshift_destr = ((ps55.bitblt.reg[0x3] >> 4) & 0x0f);//set bit shift
-			ps55.bitblt.raster_op = ps55.bitblt.reg[0x0b] & 0x03;//01 AND, 03 XOR
+			ps55.bitblt.raster_op = ps55.bitblt.reg[0x0b];
 			//if (~ps55.data3ea_0b & 0x08) {//for debugging 3EA 0b = 00h
 			//	LOG_MSG("---------------------------------------------");
 			//}
 			//if (ps55.data3ea_0b >= 0x08)
 			//	;
 			//else
-			if (ps55.bitblt.reg[0x5] == 0x48) {//Fill a rectangle (or draw a line)
+			if (ps55.bitblt.reg[0x5] == 0x43) {//Draw a line
+				Bit16s dest_x = (ps55.bitblt.reg[0x32] & 0xffff);
+				Bit16s dest_y = (ps55.bitblt.reg[0x34] & 0xffff);
+				Bit16s wx1 = (ps55.bitblt.reg[0x32]) >> 16;
+				Bit16s wx2 = (ps55.bitblt.reg[0x33]) >> 16;
+				Bit16s wy1 = (ps55.bitblt.reg[0x34]) >> 16;
+				Bit16s wy2 = (ps55.bitblt.reg[0x35]) >> 16;
+				Bit16u size_x = abs((Bit16s)(ps55.bitblt.reg[0x33] & 0xffff) - dest_x);
+				Bit16u size_y = abs((Bit16s)(ps55.bitblt.reg[0x35] & 0xffff) - dest_y);
+				Bits countend, d;
+				ps55.bitblt.bitshift_destr = 0;
+				if (ps55.bitblt.reg[0x2D] & 0x04) /* dX > dY */
+				{
+					d = 2 * size_y - size_x;
+					countend = size_x;
+				}
+				else
+				{
+					d = 2 * size_x - size_y;
+					countend = size_y;
+				}
+				Bits x = dest_x;
+				Bits y = dest_y;
+				Bits destaddr, pixelmask;
+
+				for (Bits count = 0; count <= countend; count++) {
+					destaddr = y * (ps55.crtc_reg[0x13] * 2) + x / 8;
+					pixelmask = x % 16;
+					if (pixelmask >= 8)
+						pixelmask = (0x8000 >> (pixelmask - 8));
+					else
+						pixelmask = (0x80 >> pixelmask);
+
+					/* check the current position is inside the window */
+					if (x < wx1 || x > wx2
+						|| y < wy1 || y > wy2)
+						;
+					else
+						PS55_DrawColorWithBitmask(destaddr, ps55.bitblt.reg[0x0], pixelmask);
+
+					/* calculate the next position with Bresenham's line algorithm */
+					if (ps55.bitblt.reg[0x2D] & 0x04) { /* dX > dY */
+						if (ps55.bitblt.reg[0x2D] & 0x02) {
+							x++;
+						}
+						else {
+							x--;
+						}
+						if (d >= 0) {
+							d -= (2 * size_x);
+							if (ps55.bitblt.reg[0x2D] & 0x01) {
+								y++;
+							}
+							else {
+								y--;
+							}
+						}
+						d += (2 * size_y);
+					}
+					else {
+						if (ps55.bitblt.reg[0x2D] & 0x01) {
+							y++;
+						}
+						else {
+							y--;
+						}
+						if (d >= 0) {
+							d -= (2 * size_y);
+							if (ps55.bitblt.reg[0x2D] & 0x02) {
+								x++;
+							}
+							else {
+								x--;
+							}
+						}
+						d += (2 * size_x);
+					}
+				}
+			}
+			else if ((ps55.bitblt.reg[0x5] & 0xfff0) == 0x40 && ps55.bitblt.reg[0x3D] == 0) {//Fill a rectangle (or draw a line)
 				Bitu destaddr_begin = ps55.bitblt.reg[0x29];
 				Bit8u frontcolor = ps55.bitblt.reg[0x0] & 0x0f;
 				for (Bitu y = 0; y < ps55.bitblt.reg[0x35]; y++)
@@ -689,7 +787,7 @@ void DisableGaijiRAMHandler()
 					}
 				}
 			}
-			else if (ps55.bitblt.reg[0x5] == 0x1048 && ps55.bitblt.reg[0x3D] == 0x40) {//Tiling a rectangle (transfer tile data multiple times)
+			else if ((ps55.bitblt.reg[0x5] & 0xfff0) == 0x1040 && ps55.bitblt.reg[0x3D] == 0x40) {//Tiling a rectangle (transfer tile data multiple times)
 				Bitu destaddr_begin = ps55.bitblt.reg[0x29];
 				Bitu tileaddr_begin = ps55.bitblt.reg[0x2B];
 				//LOG_MSG("bitblt tiling: wt %d, ht %d, wd %d, wh %d, 3d %d", ps55.bitblt.reg[0x23], ps55.bitblt.reg[0x28], ps55.bitblt.reg[0x33], ps55.bitblt.reg[0x35], ps55.bitblt.reg[0x3d]);
@@ -711,7 +809,7 @@ void DisableGaijiRAMHandler()
 					}
 				}
 			}
-			else if (ps55.bitblt.reg[0x5] == 0x1048 && ps55.bitblt.reg[0x3D] == 0x00) {//Block copy 
+			else if ((ps55.bitblt.reg[0x5] & 0xfff0) == 0x1040 && ps55.bitblt.reg[0x3D] == 0x00) {//Block transfer (range copy)
 				Bitu destaddr_begin = ps55.bitblt.reg[0x29];
 				Bitu srcaddr_begin = ps55.bitblt.reg[0x2A];
 				//LOG_MSG("bitblt bitshift: %02x, dest: %08x src: %08x, mask: %04x", ps55.bitblt.bitshift_destr, destaddr_begin, srcaddr_begin, ps55.bitblt.reg[0x8]);
@@ -733,7 +831,7 @@ void DisableGaijiRAMHandler()
 					}
 				}
 			}
-			else if (ps55.bitblt.reg[0x5] == 0x1148 && ps55.bitblt.reg[0x3D] == 0x00) {//Block copy but reverse direction
+			else if ((ps55.bitblt.reg[0x5] & 0xfff0) == 0x1140 && ps55.bitblt.reg[0x3D] == 0x00) {//Block copy but reverse direction
 				Bitu destaddr_begin = ps55.bitblt.reg[0x29];
 				Bitu srcaddr_begin = ps55.bitblt.reg[0x2A];
 				for (Bitu y = 0; y < ps55.bitblt.reg[0x35]; y++)
@@ -754,10 +852,18 @@ void DisableGaijiRAMHandler()
 					}
 				}
 			}
-			//initialize regs with fefefefeh, clear regs with fefeh
+			//clear payload
 			memset(ps55.bitblt.payload, 0x00, PS55_BITBLT_MEMSIZE);
-			for (i = 0; i < PS55_BITBLT_REGSIZE; i++) {
-				if (ps55.bitblt.reg[i] != 0xfefefefe) ps55.bitblt.reg[i] = 0xfefe;
+			ps55.bitblt.payload_addr = 0;
+			//initialize regs with fefefefeh, clear regs with fefeh
+			if (!(ps55.bitblt.reg[0x20] & 0x20)) {
+				for (i = 0; i < PS55_BITBLT_REGSIZE; i++) {
+					if (ps55.bitblt.reg[i] != 0xfefefefe) ps55.bitblt.reg[i] = 0xfefe;
+				}
+			}
+			else//exec without init regs
+			{
+				ps55.bitblt.reg[0x20] = 0; /* need to stop execution */
 			}
 		}
 	}
@@ -861,19 +967,13 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			else val--;
 			break;
 		case 0x02://Start Horizontal Blanking
-			if (ps55.crtc_cmode) 
-				val-=2;
-			else val--;
+			val--;
 			break;
 		case 0x04://Start Horizontal Retrace Pulse
-			if (ps55.crtc_cmode) 
-				val-=2;
-			else val--;
+			val--;
 			break;
 		case 0x05://End Horizontal Retrace
-			if (ps55.crtc_cmode) 
-				val-=2;
-			else val--;
+			val--;
 			break;
 		case 0x06://Vertical Total
 			val -= 2;//for VGA the number of scan lines in the display - 2.
@@ -916,7 +1016,7 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x12://Vertical Display End Register
 			//val = 0x400; //for debugging bitblt
 			if (ps55.crtc_cmode) val -= 31;
-			else val-=2;//for VGA
+			else val-=2;//adjust for VGA
 			if (val > 0xff) {
 				Bit8u new_overflow = (val & 0x100) >> 7;//(01 0000 0000 -> 0000 0010)
 				new_overflow |= (val & 0x200) >> 3;//(10 0000 0000 -> 0100 0000)
@@ -1000,10 +1100,20 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		//else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
 		val >>= 8;
 		PS55_GCR_Write(val);
+		/* reset masks for compatibility with Win 3.1 solitaire */
+		if (ps55.idx_3eb == 05) {
+			ps55.idx_3eb = 0x08;
+			PS55_GCR_Write(0xff);
+			ps55.idx_3eb = 0x09;
+			PS55_GCR_Write(0xff);
+			ps55.idx_3eb = 0x0a;
+			PS55_GCR_Write(0xff);
+		}
 		break;
 	case 0x3ed://used by Windows 3.1 display driver
 		//if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
 		//else LOG_MSG("PS55_??: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+		if (len == 1) return;
 		ps55.idx_3eb = 05;
 		PS55_GCR_Write(val);
 		break;
@@ -1012,7 +1122,8 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 	//	LOG_MSG("PS55_GC: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
 	//	break;
 	case 0x3e9:
-		//dummy to avoid logmsg duplication
+		/* VZ Editor's CURSOR.COM writes data via this port */
+		ps55.attr_reg[ps55.idx_3e8 & 0x1f] = val;
 		break;
 	default:
 		if (len == 2) LOG_MSG("PS55_??: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
@@ -1029,6 +1140,7 @@ void PS55_SetupSetResetRegisters()
 }
 void PS55_GCR_Write(Bitu val)
 {
+	ps55.gc_reg[ps55.idx_3eb & 0x1f] = (Bit8u)val;
 	switch (ps55.idx_3eb) {
 	case 0x00://Set/Reset
 		//if(ps55.set_reset != val) LOG_MSG("PS55_GC: Set/Reset (00h) val %02xh (%d) -> %02xh (%d)", ps55.set_reset, ps55.set_reset, val, val);
@@ -1044,18 +1156,22 @@ void PS55_GCR_Write(Bitu val)
 		ps55.full_enable_set_reset_high = FillTable[(val >> 4) & 0x0f];
 		PS55_SetupSetResetRegisters();
 		break;
+	//case 0x02://(VGA: Color Compare)
 	case 0x03://Data Rotate
 		//if(ps55.data_rotate != val) LOG_MSG("PS55_GC: Data Rotate (03h) val %02xh (%d) -> %02xh (%d)", ps55.data_rotate, ps55.data_rotate, val, val);
 		ps55.data_rotate = val & 0x0f;
 		break;
 	case 0x04://Read Map Select
 		//LOG_MSG("PS55_GC: Read Map Select (04h) val %02xh (%d) -> %02xh (%d)", vga.gfx.read_map_select, vga.gfx.read_map_select, val, val);
-		vga.gfx.read_map_select = val & 0x07;
-		vga.config.read_map_select = val & 0x07;
+		vga.gfx.read_map_select = val;
+		vga.config.read_map_select = val;
 		break;
 	case 0x06://Reserved (VGA: Miscellaneous)
-	case 0x07://Reserved (VGA: Color Don't Care)
 			  //do nothing
+		break;
+	case 0x07://(VGA: Color Don't Care)
+		val = ~val;//invert the input value for VGA register
+		write_p3cf(0x3CF, val, 1);
 		break;
 	case 0x08://Bit Mask (Low)
 		//if (ps55.bit_mask_low != val) LOG_MSG("PS55_GC: Bit Mask Low (08h) val %02xh (%d) -> %02xh (%d)", ps55.bit_mask_low, ps55.bit_mask_low, val, val);
@@ -1079,19 +1195,17 @@ void PS55_GCR_Write(Bitu val)
 			  // 08 0000 1000
 			  // 0B 0000 1011
 		//if (ps55.data3ea_0b != val) LOG_MSG("PS55_GC: Command (0Bh) val %02xh (%d) -> %02xh (%d)", ps55.data3ea_0b, ps55.data3ea_0b, val, val);
-		vga.config.raster_op = val & 3;//?
+		vga.config.raster_op = val;
 		ps55.data3ea_0b = val;//for debug
 		break;
-	case 0x05://Mode
+	case 0x05://Mode (readmode and writemode)
 		// 00 08 40 41 42 43
-		// 42 text in  DOS J4.0
-		//43 text in Win 3.1
-		//LOG_MSG("PS55_GC: Graphics Mode (05h) val %02xh (%d)", val, val);
-		if ((val & 0x03) == 2) val -= 1 ;//? for DOS J4.0 MODE 4 graphics
-		//through!!!
+		//LOG_MSG("PS55_GC: Graphics Mode (05h) val %02xh (%d) CS %x IP %x", val, val, SegValue(cs), reg_ip);
+		write_p3cf(0x3CF, val, 1);
+		break;
 	default:
-		//LOG_MSG("PS55_3E5(VGA_GC): Write to idx %x, val %04xh (%d)", ps55.idx_3eb, val, val);
-		write_p3cf(0x3e5, val, 1);
+		//LOG_MSG("PS55_3CF(VGA_GC): Write to idx %x, val %04xh (%d)", ps55.idx_3eb, val, val);
+		write_p3cf(0x3CF, val, 1);
 		break;
 	}
 }
@@ -1130,12 +1244,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 #endif
 		ps55.attr_reg[ps55.idx_3e8 & 0x1f] = data;
 		//!!!!!  ps55.idx_3e8=Index, data=Data   !!!!!
-		switch (ps55.idx_3e8 & 0x1f) {
-		case 0x0a://Cursor start and options
-			data &= 0x3f;//mask input for VGA
-			//write_p3c0(port, ps55.idx_3e8, 1);
-			//write_p3c0(port, data, 1);
-			break;
+		switch (ps55.idx_3e8 & 0x1f) { 
 		case 0x14://Set line color for character mode
 			ps55.palette_line = data & 0x0f;
 			//ps55.palette_line = data;
@@ -1143,7 +1252,7 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x18://attribute mode 03 compatible?
 			if ((ps55.text_mode03 & 0x01) ^ (data & 0x01)) {
 				ps55.text_mode03 = data;
-				//VGA_DetermineMode();//setup vga drawing if the value is changed
+				VGA_DetermineMode();//setup vga drawing if the value is changed
 			}
 			return;
 		case 0x1a://Cursor color
@@ -1198,8 +1307,8 @@ void PS55_ATTR_Write(Bitu port, Bitu val, Bitu len) {
 }
 
 void PS55_GC_Index_Write(Bitu port, Bitu val, Bitu len) {
-	//if (len == 2) LOG_MSG("PS55_IDX: Write to port %x, val %04xh (%d), len %x", port, val, val, len);
-	//else LOG_MSG("PS55_IDX: Write to port %x, val %02xh (%d), len %x", port, val, val, len);
+	//if (len == 2) LOG_MSG("PS55_IDX: Write to port %x, val %04xh (%d), len %x %x:%x", port, val, val, len, SegValue(cs), reg_ip);
+	//else LOG_MSG("PS55_IDX: Write to port %x, val %02xh (%d), len %x %x:%x", port, val, val, len, SegValue(cs), reg_ip);
 	Bitu data = 0;
 	if (len == 2) {//data addr
 		data = val >> 8 ;
@@ -1234,7 +1343,7 @@ void PS55_GC_Index_Write(Bitu port, Bitu val, Bitu len) {
 }
 
 Bitu PS55_GC_Read(Bitu port, Bitu len) {
-	Bitu ret = 0x00;
+	Bitu ret = 0xFF;//J-DOS BASIC interpreter tests 3E3/Index 36h is writable
 	switch (port) {
 	case 0x3e0://?
 		ret = ps55.idx_3e1;
@@ -1251,14 +1360,12 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 	case 0x3ea://Graphics Controller Registers
 		ret = ps55.idx_3eb;
 		break;
-		//3E0: bit 3 Configuration (?)
-		//     bit 0 In Operation / -Access
 	case 0x3e1://??? (undocumented)
 		switch (ps55.idx_3e1) {
 		case 0x02://?
 			ret = ps55.data3e1_02;
 			break;
-		case 0x03://bit 7: Display supports color/mono, bit 0: busy?
+		case 0x03://bit 7: Display supports color/mono, bit 0: In Operation (wait) / -Access
 			ret = ps55.data3e1_03;//default 0x80
 			//ret = 0x80;//1000 0000
 			//ret = 0x00;//0000 0000 for TEST
@@ -1266,11 +1373,12 @@ Bitu PS55_GC_Read(Bitu port, Bitu len) {
 		case 0x08://bit 4: Gaiji RAM Access Enabled
 			ret = ps55.gaijiram_access;
 			break;
-		case 0x0a://flags? Bit2-0 = (110 or 111): Display Adapter Memory Expansion Kit is not installed.
-			ret = 0x07;//To disable 256 color mode that is still not supported.
+		case 0x0a:  //Config1 Bit 5 = 0: DA-2, 1: DA-3 or DA-5 
+					//Bit2-0 = (110 or 111): Display Adapter Memory Expansion Kit is not installed to disable 256 color mode that is still not supported.
+			ret = 0x16;//MonID3 + 512KB
 			break;
-		case 0x0b://flags?
-			ret = 0x00;
+		case 0x0b://Config2
+			ret = 0x02;//MonID1
 			break;
 		default:
 			//LOG_MSG("PS55_IOCTL: Read from port %x, idx %x, len %x, ret %x", port, ps55.idx_3e1, len, ret);
@@ -1410,74 +1518,18 @@ void FinishSetMode_PS55(Bitu /*crtc_base*/, VGA_ModeExtraData* modeData) {
 }
 
 void DetermineMode_PS55() {
-#ifdef C_HEAVY_DEBUG
-	//LOG_MSG("Mode? 3e1_2 %02X, 3e3_0 %02X, 3e5_1c %02X, 3e5_1f %02X, 3e8_38 %02X, 3e8_3f %02X",
-	//	ps55.data3e1_02, ps55.mem_conf, ps55.crtc_reg[0x1c], ps55.crtc_reg[0x1f], ps55.text_mode03, ps55.data3e8_1f);
-	//LOG_MSG("3E1 0x00-f: %02X %02X %02X %02X %02X %02X %02X",
-	//	ps55.p3e1_reg[0x00],
-	//	ps55.p3e1_reg[0x01],
-	//	ps55.p3e1_reg[0x02],
-	//	ps55.p3e1_reg[0x03],
-	//	ps55.p3e1_reg[0x08],
-	//	ps55.p3e1_reg[0x0d],
-	//	ps55.p3e1_reg[0x0e]);
-	//LOG_MSG("CRTC 0x0c-1f: %02X %02X %02X %02X %02X %02X %02X %02X",
-	//	ps55.crtc_reg[0x0c],
-	//	ps55.crtc_reg[0x19],
-	//	ps55.crtc_reg[0x1a],
-	//	ps55.crtc_reg[0x1b],
-	//	ps55.crtc_reg[0x1c],
-	//	ps55.crtc_reg[0x1d],
-	//	ps55.crtc_reg[0x1e],
-	//	ps55.crtc_reg[0x1f]);
-	//LOG_MSG("ATTR 0x10-17: %02X %02X %02X %02X %02X %02X %02X %02X",
-	//	ps55.attr_reg[0x10],
-	//	ps55.attr_reg[0x11],
-	//	ps55.attr_reg[0x12],
-	//	ps55.attr_reg[0x13],
-	//	ps55.attr_reg[0x14],
-	//	ps55.attr_reg[0x15],
-	//	ps55.attr_reg[0x16],
-	//	ps55.attr_reg[0x17]);
-	//LOG_MSG("ATTR 0x18-1f: %02X %02X %02X %02X %02X %02X %02X %02X",
-	//	ps55.attr_reg[0x18],
-	//	ps55.attr_reg[0x19],
-	//	ps55.attr_reg[0x1a],
-	//	ps55.attr_reg[0x1b],
-	//	ps55.attr_reg[0x1c],
-	//	ps55.attr_reg[0x1d],
-	//	ps55.attr_reg[0x1e],
-	//	ps55.attr_reg[0x1f]);
-	//for (Bitu i = 0; i < 0x20; i++)
-	//{
-	//	vga.crtc.index = i;
-	//	LOG_MSG("PS55_CRTC 0x%02X: %X (%d)", i, ps55.crtc_reg[i], ps55.crtc_reg[i]);
-	//	LOG_MSG("VGA_CRTC 0x%02X: %X (%d)", i, vga_read_p3d5(0,1), vga_read_p3d5(0, 1));
-	//}
-#endif
 	if (ps55.carden)
 	{
 		vga.vmemwrap = 512 * 1024;
 		if (!(ps55.data3e1_02 & 0x01)) {
-		//if (ps55.data3e8_3f & 0x02) {//this glitches the screen because the function is called after DOS clears the vmem.
-		//if(1){//for debug
-			//if (~ps55.data3e1_02 & 0x04) {
-			//if(0){
-			if (vga.attr.color_plane_enable == 0x01) {
-#ifdef C_HEAVY_DEBUG
-				LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 monochrome graphics.");
-#endif
-					VGA_SetMode(M_PS55_GFX_MONO);
-			}
-			else {
 #ifdef C_HEAVY_DEBUG
 				LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 8-color graphics.");
 #endif
 					VGA_SetMode(M_PS55_GFX);
-			}
+			//}
 		}
 		else {
-			if (ps55.mem_conf & 0x40) {
+			if (ps55.text_mode03) {
 #ifdef C_HEAVY_DEBUG
 				LOG_MSG("PS55_DetermineMode: Set videomode to PS/55 Mode 03 text.");
 #endif
@@ -1512,22 +1564,16 @@ void DetermineMode_PS55() {
 }
 /*
 DOS K3.3
-Mode 0 C8 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
-          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
-Mode 1 GA 3e1_2 10, 3e3_0 00, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
-          CRTC 0x0c-1f: 00 00 01 00 80 00 04 02
-Mode 3 CE 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
-          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
-Mode 4 GD 3e1_2 10, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
-          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
+Mode 0 C8 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
+Mode 1 GA 3e1_2 10, 3e3_0 00, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E CRTC 0x0c-1f: 00 00 01 00 80 00 04 02
+Mode 3 CE 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
+Mode 4 GD 3e1_2 10, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 
 DOS J4.0
 Mode 0 C8 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
-Mode 1 GA 3e1_2 10, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
-          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
+Mode 1 GA 3e1_2 10, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 Mode 3 CE 3e1_2 11, 3e3_0 2B, 3e5_1c 00, 3e5_1f 00, 3e8_38 00, 3e8_3f 0C
-Mode 4 GD 3e1_2 14, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E
-          CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
+Mode 4 GD 3e1_2 14, 3e3_0 2B, 3e5_1c 80, 3e5_1f 02, 3e8_38 00, 3e8_3f 0E CRTC 0x0c-1f: FF 00 01 00 80 00 04 02
 VMX  3 C3 3e1_2 15, 3e3_0 6B, 3e5_1c 00, 3e5_1f 02, 3e8_38 01, 3e8_3f 0C
 */
 
@@ -1577,7 +1623,7 @@ Bitu GetClock_PS55() {
 bool AcceptsMode_PS55(Bitu mode) {
 	if(!ps55.carden) return VideoModeMemSize(mode) < vga.vmemsize;
 	//only character mode is supported
-	if (mode == 0x08 || mode == 0x0e)
+	if (mode == 0x08 || mode == 0x0e || mode == 0x0d)
 		return VideoModeMemSize(mode) < vga.vmemsize;
 	else
 		return false;
@@ -1632,7 +1678,7 @@ void PS55_WakeUp(void) {
 	//IO_RegisterWriteHandler(0x3eb, &write_p3cf, IO_MB | IO_MW);
 	//IO_RegisterReadHandler(0x3eb, &read_p3cf, IO_MB | IO_MW);
 
-	IO_RegisterWriteHandler(0x3ec, &PS55_GC_Index_Write, IO_MB | IO_MW);
+	IO_RegisterWriteHandler(0x3ec, &PS55_GC_Data_Write, IO_MB | IO_MW);
 	IO_RegisterReadHandler(0x3ec, &PS55_GC_Read, IO_MB | IO_MW);
 	IO_RegisterWriteHandler(0x3ed, &PS55_GC_Data_Write, IO_MB | IO_MW);
 	IO_RegisterReadHandler(0x3ed, &PS55_GC_Read, IO_MB | IO_MW);
@@ -1663,9 +1709,14 @@ void SVGA_Setup_PS55(void) {
 #if C_DEBUG
 	ps55.bitblt.debug_reg = new Bitu[65536 * PS55_DEBUG_BITBLT_SIZE];
 #endif
+#ifdef C_HEAVY_DEBUG
+	ps55.mmwdbg_fp = fopen("da2_mmiowdat.txt", "w");
+	ps55.mmrdbg_fp = fopen("da2_mmiordat.txt", "w");
+#endif
 	//ps55.font_da1 = new Bit8u[1536 * 1024];//1024 KB for Display Adapter (I) Font ROM
 	//memset(ps55.font_da1, 0x00, 1536 * 1024);
 	//generate_DA1Font();
+	ps55.bitblt.payload_addr = 0;
 	memset(ps55.bitblt.payload, 0x00, PS55_BITBLT_MEMSIZE);
 	memset(ps55.bitblt.reg, 0xfe, PS55_BITBLT_REGSIZE * sizeof(Bitu));//clear memory
 	ps55.mem_select = 0xb0;
@@ -1692,7 +1743,7 @@ void SVGA_Setup_PS55(void) {
 
 	svga.set_video_mode = &FinishSetMode_PS55;
 	svga.determine_mode = &DetermineMode_PS55;
-	//svga.set_clock = &SetClock_PS55;
+	svga.set_clock = &SetClock_PS55;
 	svga.get_clock = &GetClock_PS55;
 	svga.accepts_mode = &AcceptsMode_PS55;
 

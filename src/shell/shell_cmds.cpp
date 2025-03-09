@@ -1355,6 +1355,9 @@ void DOS_Shell::CMD_MODE(char* args) {
 	else if (strncasecmp(pbuffer, "3", 1) == 0) {
 		set_videomode = 0x0e;
 	}
+	else if (strncasecmp(pbuffer, "4", 1) == 0) {
+		set_videomode = 0x0d;
+	}
 	else if (strcasecmp(pbuffer, "/?") == 0) { HELP("MODE"); }
 	if (set_videomode != 0) {
 		IO_Write(0x96, 0x20);//enter setup VGA

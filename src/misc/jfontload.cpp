@@ -214,7 +214,6 @@ static Bitu LoadFontxFile(const char * fname) {
 					font = buf << 8;
 					fread(&buf, sizeof(Bit8u), 1, mfile);
 					font |= buf;
-					font >> 1;
 					ps55font_24[0x98000 + i * 64 + line * 2 + 1] = font & 0xff;
 					ps55font_24[0x98000 + i * 64 + line * 2] = (font >> 8) & 0xff;
 				}
@@ -582,7 +581,7 @@ void JFONT_Init(Section_prop * section) {
 	ps55font_24 = new Bit8u[DBCS24_LEN];
 	memset(jfont_sbcs_19, 0xff, SBCS19_LEN);
 	memset(jfont_dbcs_16, 0xff, DBCS16_LEN);
-	memset(ps55font_24, 0xff, DBCS24_LEN);
+	memset(ps55font_24, 0, DBCS24_LEN);
 	//for (int i = 0; i < DBCS24_LEN / TESLENG; i++) {//for test
 	//	jfont_dbcs_24[i * TESLENG + 2] = i & 0xff;
 	//	jfont_dbcs_24[i * TESLENG + 4] = (i >> 8) & 0xff;

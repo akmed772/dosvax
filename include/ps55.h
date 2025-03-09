@@ -7,10 +7,11 @@ This content is under the MIT License.
 #pragma once
 //Prepro **need to modify!!!**
 #include "vga.h"
+#include <stdio.h>
 //#define VGA_PAGE_PS55TEXT  (0xE0000/4096)
 #define NOAHDATA 0xAAAAC
 #define GAIJI_RAMBASE (0xA0000/4096)
-#define PS55_BITBLT_MEMSIZE 0x80
+#define PS55_BITBLT_MEMSIZE 0x100
 #define PS55_BITBLT_REGSIZE 0x40
 #define PS55_DEBUG_BITBLT_SIZE 0x41
 
@@ -33,6 +34,7 @@ typedef struct {
 	Bit8u raster_op;
 
 	Bit8u payload[PS55_BITBLT_MEMSIZE];
+	Bitu payload_addr;
 	Bitu reg[PS55_BITBLT_REGSIZE];
 #if C_DEBUG
 	Bitu* debug_reg;//for debug
@@ -74,6 +76,7 @@ struct PS55Registers {
 	Bit16u crtc_reg[0x20];//CRTC registers
 	Bit8u p3e1_reg[0x20];//CRTC registers
 	Bit8u attr_reg[0x20];//ATTR registers for debug
+	Bit8u gc_reg[0x20];//GC registers for debug
 	Bit8u text_mode03 = 0;//3e8 18
 	PageHandler* pagehndl_backup[32];
 	Bit8u data3e1_02 = 0;//3e1 02
@@ -106,6 +109,12 @@ struct PS55Registers {
 	//for backup VGA register
 	Bit8u vga_crtc_overflow;
 	Bitu vga_config_line_compare;
+#ifdef C_HEAVY_DEBUG
+	FILE* mmwdbg_fp;
+	FILE* mmrdbg_fp;
+	Bit32u mmwdbg_vidaddr;
+	Bit32u mmrdbg_vidaddr;
+#endif
 };
 
 extern PS55Registers ps55;
