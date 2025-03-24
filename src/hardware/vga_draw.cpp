@@ -779,7 +779,7 @@ static Bit8u* VGA_TEXT_PS55_Draw_Line(Bitu vidstart, Bitu line) {
 		}
 
 		//Line 28 (Underscore) Note: Draw this first to display blink + vertical + underline correctly.
-		if (line == 27 && attr & 0x40 && ~ps55.attr_mode & 0x80) {//Underscore only in monochrome mode
+		if (line == ps55.underscore_loc && attr & 0x40 && ~ps55.attr_mode & 0x80) {//Underscore only in monochrome mode
 			for (Bitu n = 0; n < 13; n++)
 				*draw++ = foreground;//under line (white)
 			draw -= 13;

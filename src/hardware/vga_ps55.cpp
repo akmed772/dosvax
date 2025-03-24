@@ -962,9 +962,8 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			//val -= 5;
 			break;
 		case 0x01://Horizontal Display End Register
-			if (ps55.crtc_cmode) 
-				val-=2;
-			else val--;
+			val -= ps55.disp_start_h;
+			val -= 1;//adjust for VGA
 			break;
 		case 0x02://Start Horizontal Blanking
 			val--;
@@ -1014,9 +1013,8 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			}
 			break;
 		case 0x12://Vertical Display End Register
-			//val = 0x400; //for debugging bitblt
-			if (ps55.crtc_cmode) val -= 31;
-			else val-=2;//adjust for VGA
+			val -= ps55.disp_start_v;
+			val -= 2;//adjust for VGA
 			if (val > 0xff) {
 				Bit8u new_overflow = (val & 0x100) >> 7;//(01 0000 0000 -> 0000 0010)
 				new_overflow |= (val & 0x200) >> 3;//(10 0000 0000 -> 0100 0000)
@@ -1032,6 +1030,9 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			//val=64;
 			//through to VGA CRTC
 			break;
+		case 0x14://Underline location
+			ps55.underscore_loc = val;
+			return;
 		case 0x15://Start Vertical Blank Register
 			//val = 0x400; //for debugging bitblt
 			if (val > 0xff) {
@@ -1067,20 +1068,11 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 				vga.crtc.maximum_scan_line &= ~0x40;
 			}
 			break;
-		case 0x19:
-			bool new_crtcmode;
-			new_crtcmode = (val & 0x01) ? true : false;//TODO
-			//new_crtcmode = true;
-			if (ps55.crtc_cmode != new_crtcmode) {//if changed
-				ps55.crtc_cmode = new_crtcmode;
-				LOG_MSG("Reprogramming CRTC timing table.");
-				//reconfigure crtc with modified values
-				for (Bitu i = 0; i < 0x1f; i++)
-				{
-					PS55_GC_Index_Write(0x3e4, i, 1);
-					PS55_GC_Data_Write(0x3e5, ps55.crtc_reg[i], 2);
-				}
-			}
+		case 0x19://H Disp Start Line
+			ps55.disp_start_h = val;
+			return;
+		case 0x1A://V Disp Start Line
+			ps55.disp_start_v = val;
 			return;
 		case 0x1c://? Bit 7: Graphics mode?, Bit 6: set 1 when idx c is set to ffh
 			return;

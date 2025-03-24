@@ -68,8 +68,10 @@ struct PS55Registers {
 	Bit8u data3e3_08 = 0;//3e3 08
 	Bit8u mem_bank = 0;//3e3 0a
 	Bit8u mem_select = 0;//3e3 0b
+	Bit8u underscore_loc = 0x1b;//3e5 14
+	Bit8u disp_start_h = 0;//3e5 19
+	Bit16u disp_start_v = 0;//3e5 1a
 	bool cursor_wide = false;//3e5 1f
-	bool crtc_cmode = false;//3e5 1f
 	Bit8u cursor_options = 0x13;//3e8 1b
 	Bit8u cursor_color = 0x0f;//3e8 1a
 	Bit8u cursor_blinkspeed = 0xff;
