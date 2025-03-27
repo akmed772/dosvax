@@ -262,7 +262,9 @@ void EnableVGA(void) {
 	VGA_SetupSEQ();
 	VGA_SetupAttr();
 	VGA_SetupOther();
+#if C_DEBUG
 	LOG_MSG("VGA I/O handlers enabled!!");
+#endif
 	VGA_DetermineMode();
 }
 
@@ -292,7 +294,9 @@ void DisableVGA(void) {
 	//	mem_writeb(0xc0000 + i, (Bit8u)0);
 	//}
 
+#if C_DEBUG
 	LOG_MSG("VGA I/O handlers disabled!!");
+#endif
 }
 
 /*
@@ -952,6 +956,11 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 		case 0x00://for VGA: Horizontal Total Character Clocks-5
 			//val -= 5;
 			break;
+		case 0x19://H Disp Start Line
+			ps55.disp_start_h = val;
+			val = ps55.crtc_reg[0x01];
+			vga_write_p3d4(0x3d4, 0x01, 1);
+			//passthrough!
 		case 0x01://Horizontal Display End Register
 			val -= ps55.disp_start_h;
 			val -= 1;//adjust for VGA
@@ -1003,6 +1012,11 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 				vga.crtc.overflow &= ~0x84;
 			}
 			break;
+		case 0x1A://V Disp Start Line
+			ps55.disp_start_v = val;
+			val = ps55.crtc_reg[0x12];
+			vga_write_p3d4(0x3d4, 0x12, 1);
+			//passthrough!
 		case 0x12://Vertical Display End Register
 			val -= ps55.disp_start_v;
 			val -= 2;//adjust for VGA
@@ -1059,14 +1073,6 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 				vga.crtc.maximum_scan_line &= ~0x40;
 			}
 			break;
-		case 0x19://H Disp Start Line
-			ps55.disp_start_h = val;
-			VGA_StartResize();
-			return;
-		case 0x1A://V Disp Start Line
-			ps55.disp_start_v = val;
-			VGA_StartResize();
-			return;
 		case 0x1c://? Bit 7: Graphics mode?, Bit 6: set 1 when idx c is set to ffh
 			return;
 		case 0x1f:
@@ -1622,7 +1628,9 @@ void PS55_Suspend(void) {
 	}
 	vga.crtc.overflow = ps55.vga_crtc_overflow;
 	vga.config.line_compare = ps55.vga_config_line_compare;
+#if C_DEBUG
 	LOG_MSG("PS/55 suspended");
+#endif
 }
 void PS55_WakeUp(void) {
 	ps55.carden = true;
@@ -1683,7 +1691,9 @@ void PS55_WakeUp(void) {
 
 	vga.vmemsize = 512 * 1024;
 	DetermineMode_PS55();
+#if C_DEBUG
 	LOG_MSG("PS/55 wakes up!!");
+#endif
 }
 
 //Setup MicroChannel(tm) bus and adapters
