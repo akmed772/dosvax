@@ -477,21 +477,17 @@ typedef union {
 
 void PS55_WritePlaneDataWithBitmask(Bitu destvmemaddr, const Bit16u mask, VGA_Latch srclatch1, VGA_Latch srclatch2, VGA_Latch srclatch3, VGA_Latch srclatch4)
 {
-	VGA_Latch destlatch1, destlatch2, destlatch3, destlatch4;
+	VGA_Latch destlatch1, destlatch2;
 	destvmemaddr &= 0xfffffffe; /* align to word address to work bit shift correctly */
 	Bit32u maxvmemaddr = (vga.vmemsize - 1) >> 2;//divided by 4 because below code use dword memory access
 	destlatch1.d = ((Bit32u*)vga.mem.linear)[(destvmemaddr) & maxvmemaddr];
 	destlatch2.d = ((Bit32u*)vga.mem.linear)[(destvmemaddr + 1) & maxvmemaddr];
-	//destlatch3.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 2];
-	//destlatch4.d = ((Bit32u*)vga.mem.linear)[destvmemaddr + 3];
-	// 
+
 	PS55_VidSeq32 mask32in; mask32in.d = (Bit32u)mask;//[3]0x00 [2]0x00 [1]0xFF [0]0x3F (mask is 00111111 11111111, but byte order is opposite)
 	PS55_VidSeq32 mask32; mask32.d = 0;
 	PS55_VidSeq32 masksh32; masksh32.d = 0xffff0000;
 	mask32.b[3] = mask32in.b[0];
 	mask32.b[2] = mask32in.b[1];
-	//mask32.b[1] = mask32in.b[2];
-	//mask32.b[0] = mask32in.b[3];
 	mask32.d &= 0xffff0000;//[3]0x3F [2]0xFF [1]0x00 [0]0x00
 	//if (ps55.data3ea_0b < 0x08)
 	//LOG_MSG("dest %05X x %4d y %3d | src          mask     shift=%x", destvmemaddr, (destvmemaddr % vga.config.scan_len) * 8 ,(destvmemaddr >> 1) / vga.config.scan_len, bitshiftin_destr);
@@ -501,16 +497,13 @@ void PS55_WritePlaneDataWithBitmask(Bitu destvmemaddr, const Bit16u mask, VGA_La
 		//srclatch1.b[i] &= masksrc1;
 		//srclatch2.b[i] &= masksrc2;
 		PS55_VidSeq32 srctemp32; srctemp32.d = 0;
-		PS55_VidSeq32 destop32, desttemp32;
+		PS55_VidSeq32 destop32;
 		srctemp32.b[3] = srclatch1.b[i];
 		srctemp32.b[2] = srclatch2.b[i];
 		srctemp32.b[1] = srclatch3.b[i];
 		srctemp32.b[0] = srclatch4.b[i];
 		destop32.b[3] = destlatch1.b[i];
 		destop32.b[2] = destlatch2.b[i];
-		//destop32.b[1] = destlatch3.b[i];
-		//destop32.b[0] = destlatch4.b[i];
-		//desttemp32.d = destop32.d;
 		//LOG_MSG("                             %08x", srctemp32.d);
 		if (ps55.bitblt.bitshift_destr) {
 			srctemp32.d >>= ps55.bitblt.bitshift_destr;
@@ -544,8 +537,6 @@ void PS55_WritePlaneDataWithBitmask(Bitu destvmemaddr, const Bit16u mask, VGA_La
 		}
 		destlatch1.b[i] = destop32.b[3];
 		destlatch2.b[i] = destop32.b[2];
-		//destlatch3.b[i] = destop32.b[1];
-		//destlatch4.b[i] = destop32.b[0];
 		//if (ps55.data3ea_0b < 0x08) {
 		//	LOG_MSG("%02x %02x %02x %02x", destlatch1.b[i], destlatch2.b[i], destlatch3.b[i], destlatch4.b[i]);
 		//}
@@ -667,7 +658,7 @@ void DisableGaijiRAMHandler()
 			for (i = 0; i < PS55_DEBUG_BITBLT_SIZE; i++) {
 				//if(ps55.bitblt.reg[i] != 0xfefe && ps55.bitblt.reg[i] != 0xfefefefe) LOG_MSG("%02x: %04x (%d)",i, ps55.bitblt.reg[i], ps55.bitblt.reg[i]);
 			}
-			for (i = 0; i < PS55_DEBUG_BITBLT_SIZE; i++) {
+			for (i = 0; i < PS55_DEBUG_BITBLT_SIZE - 1; i++) {
 				ps55.bitblt.debug_reg[PS55_DEBUG_BITBLT_SIZE * ps55.bitblt.debug_reg_ip + i] = ps55.bitblt.reg[i];
 			}
 			ps55.bitblt.debug_reg[PS55_DEBUG_BITBLT_SIZE * (ps55.bitblt.debug_reg_ip + 1) - 1] = ps55.data3ea_0b;
@@ -1070,9 +1061,11 @@ void PS55_GC_Data_Write(Bitu port, Bitu val, Bitu len) {
 			break;
 		case 0x19://H Disp Start Line
 			ps55.disp_start_h = val;
+			VGA_StartResize();
 			return;
 		case 0x1A://V Disp Start Line
 			ps55.disp_start_v = val;
+			VGA_StartResize();
 			return;
 		case 0x1c://? Bit 7: Graphics mode?, Bit 6: set 1 when idx c is set to ffh
 			return;
