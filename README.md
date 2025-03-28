@@ -76,6 +76,7 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 * Build 4483PS16 (2025/03/27)
   - Correct the screen size in various PS/55 video modes.
+  - Restore dependent DLL files that were missing in the previous build.
 * Build 4483PS15 (2025/03/09)
   - Changes in the PS/55 emulation
     - Add and fix some BitBlt functions to improve compatibility with Windows 3.1.
