@@ -74,6 +74,8 @@ keyboardlayout=jp If you use the Japanese 106/109 keyboard layout instead of the
 
 ### Version History
 
+* Build 4483PS17 (2025/05/28)
+  - Fix an issue that the Kanji DataBox Version 4 (Reed Rex Corp.) glitches the screen.
 * Build 4483PS16 (2025/03/27)
   - Correct the screen size in various PS/55 video modes.
   - Restore dependent DLL files that were missing in the previous build.
