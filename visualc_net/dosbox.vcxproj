@@ -110,10 +110,8 @@
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>xcopy /y /d  "$(ProjectDir)..\..\..\Lib\SDL-1.2.15\lib\x86\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\SDL_net-1.2.8\lib\x86\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\libpng-1.2.37-lib\lib\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\zlib-1.2.3-lib\lib\*.dll" "$(ProjectDir)$(OutDir)"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -160,10 +158,8 @@ xcopy /y /d  "$(ProjectDir)..\..\..\Lib\zlib-1.2.3-lib\lib\*.dll" "$(ProjectDir)
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>xcopy /y /d  "$(ProjectDir)..\..\..\Lib\SDL-1.2.15\lib\x86\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\SDL_net-1.2.8\lib\x86\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\libpng-1.2.37-lib\lib\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\zlib-1.2.3-lib\lib\*.dll" "$(ProjectDir)$(OutDir)"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release (wDebugger)|Win32'">
@@ -211,10 +207,8 @@ xcopy /y /d  "$(ProjectDir)..\..\..\Lib\zlib-1.2.3-lib\lib\*.dll" "$(ProjectDir)
       <Culture>0x0409</Culture>
     </ResourceCompile>
     <PostBuildEvent>
-      <Command>xcopy /y /d  "$(ProjectDir)..\..\..\Lib\SDL-1.2.15\lib\x86\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\SDL_net-1.2.8\lib\x86\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\libpng-1.2.37-lib\lib\*.dll" "$(ProjectDir)$(OutDir)"
-xcopy /y /d  "$(ProjectDir)..\..\..\Lib\zlib-1.2.3-lib\lib\*.dll" "$(ProjectDir)$(OutDir)"</Command>
+      <Command>
+      </Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
