@@ -2667,7 +2667,7 @@ int main(int argc, char* argv[]) {
 
 	/* Display Welcometext in the console */
 	LOG_MSG("DOSVAX version %s",VERSION);
-	LOG_MSG("Copyright 2024 akm, published under GNU GPL.");
+	LOG_MSG("Copyright 2025 akm, published under GNU GPL.");
 	LOG_MSG("---");
 
 	/* Init SDL */

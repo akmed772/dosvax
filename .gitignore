@@ -1,7 +1,5 @@
 /visualc_net/Debug
-visualc_net/.vs/dosbox/v16/.suo
-visualc_net/.vs/dosbox/v16/Browse.VC.db
-visualc_net/.vs/dosbox/v16/Browse.VC.db-shm
-visualc_net/.vs/dosbox/v16/Browse.VC.db-wal
-visualc_net/.vs/dosbox/v16/Browse.VC.opendb
 visualc_net/dosbox.vcxproj.user
+/visualc_net/.vs
+/visualc_net/Release (wDebugger)
+/visualc_net/Release

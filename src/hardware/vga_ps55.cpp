@@ -1,5 +1,5 @@
 /*
-Copyright (c) 2021-2024 akm
+Copyright (c) 2021-2025 akm
 All rights reserved.
 This content is under the MIT License.
 

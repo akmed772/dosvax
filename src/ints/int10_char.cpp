@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 2002-2021  The DOSBox Team
- *  Copyright (C) 2016-2021 akm
+ *  Copyright (C) 2016-2025 akm
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -190,6 +190,7 @@ static void TEXT_FillRow(Bit8u cleft,Bit8u cright,Bit8u row,PhysPt base,Bit8u at
 	/* Do some filing */
 	PhysPt dest;
 	dest=base+(row*CurMode->twidth+cleft)*2;
+	if (CurMode->type == M_PS55_TEXT) attr &= 0xfc;
 	Bit16u fill=(attr<<8)+' ';
 	for (Bit8u x=0;x<(cright-cleft);x++) {
 		mem_writew(dest,fill);
@@ -201,6 +202,8 @@ static void TEXT_FillRow(Bit8u cleft,Bit8u cright,Bit8u row,PhysPt base,Bit8u at
 void INT10_ScrollWindow(Bit8u rul,Bit8u cul,Bit8u rlr,Bit8u clr,Bit8s nlines,Bit8u attr,Bit8u page) {
 /* Do some range checking */
 	if (CurMode->type!=M_TEXT) page=0xff;
+	if (CurMode->type == M_PS55_TEXT)
+		page = 0;
 	BIOS_NCOLS;BIOS_NROWS;
 	if(rul>rlr) return;
 	if(cul>clr) return;
@@ -307,6 +310,8 @@ filling:
 
 void INT10_SetActivePage(Bit8u page) {
 	Bit16u mem_address;
+	if (CurMode->type == M_PS55_TEXT)
+		page = 0;
 	if (page>7) LOG(LOG_INT10,LOG_ERROR)("INT10_SetActivePage page %d",page);
 
 	if (IS_EGAVGA_ARCH && (svgaCard==SVGA_S3Trio)) page &= 7;
@@ -427,6 +432,8 @@ dowrite:
 void INT10_SetCursorPos(Bit8u row,Bit8u col,Bit8u page) {
 	Bit16u address;
 	//LOG(LOG_INT10, LOG_NORMAL)("INT10_SetCursorPos row %d, col %d, page %d", row,col, page);
+	if (CurMode->type == M_PS55_TEXT)
+		page = 0;
 	if (page>7) LOG(LOG_INT10,LOG_ERROR)("INT10_SetCursorPos page %d",page);
 	// Bios cursor pos
 	real_writeb(BIOSMEM_SEG,BIOSMEM_CURSOR_POS+page*2,col);
@@ -452,6 +459,8 @@ void ReadCharAttr(Bit16u col,Bit16u row,Bit8u page,Bit16u * result) {
 	/* Externally used by the mouse routine */
 	RealPt fontdata;
 	Bit16u cols = real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS);
+	if (CurMode->type == M_PS55_TEXT)
+		page = 0;
 	BIOS_CHEIGHT;
 	//Bitu x,y,pos = row*real_readw(BIOSMEM_SEG,BIOSMEM_NB_COLS)+col;
 	//Bit8u cheight = real_readb(BIOSMEM_SEG,BIOSMEM_CHAR_HEIGHT);
@@ -662,8 +671,7 @@ void WriteChar(Bit16u col,Bit16u row,Bit8u page,Bit8u chr,Bit8u attr,bool useatt
 			chr = sjischr & 0xff;
 			attr |= 0x01;//select DBCS
 			// Compute the address  
-			Bit16u address = page * real_readw(BIOSMEM_SEG, BIOSMEM_PAGE_SIZE);
-			address += (row * cols + col) * 2;
+			Bit16u address = (row * cols + col) * 2;
 			// Write the char 
 			PhysPt where = CurMode->pstart + address;
 			mem_writeb(where - 2, chr);
@@ -786,7 +794,10 @@ void WriteChar(Bit16u col,Bit16u row,Bit8u page,Bit8u chr,Bit8u attr,bool useatt
 }
 
 void INT10_WriteChar(Bit8u chr,Bit8u attr,Bit8u page,Bit16u count,bool showattr) {
+	if (CurMode->type == M_PS55_TEXT)
+		page = 0;
 	Bit8u pospage=page;
+	//LOG(LOG_INT10, LOG_NORMAL)("chrwrite %02x %02x %02x", chr, attr, page);
 	if (CurMode->type!=M_TEXT) {
 		showattr=true; //Use attr in graphics mode always
 		switch (machine) {
@@ -830,6 +841,7 @@ void INT10_WriteChar(Bit8u chr,Bit8u attr,Bit8u page,Bit16u count,bool showattr)
 }
 
 static void INT10_TeletypeOutputAttr(Bit8u chr,Bit8u attr,bool useattr,Bit8u page) {
+	//LOG(LOG_INT10, LOG_NORMAL)("telewrite %02x %02x %02x", chr, attr, page);
 	BIOS_NCOLS;BIOS_NROWS;
 	Bit8u cur_row=CURSOR_POS_ROW(page);
 	Bit8u cur_col=CURSOR_POS_COL(page);
